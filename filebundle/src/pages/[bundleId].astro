@@ -1,0 +1,108 @@
+---
+import "@/styles/global.css";
+import { getBundle, getBundleItems } from "@/lib/db";
+import { highlight } from "@/lib/highlight";
+import { qrSvg } from "@/lib/qr";
+
+const { bundleId } = Astro.params as { bundleId: string };
+const env = Astro.locals.runtime.env;
+const now = Math.floor(Date.now() / 1000);
+const bundle = await getBundle(env.DB, bundleId, now);
+
+if (!bundle) {
+  return Astro.rewrite("/not-found");
+}
+
+const items = await getBundleItems(env.DB, bundleId);
+const created = Astro.url.searchParams.get("created") === "1";
+const bundleUrl = `${Astro.url.origin}/${bundleId}`;
+const qr = created ? await qrSvg(bundleUrl) : "";
+const expiresInSec = bundle.expires_at - now;
+const expiresHuman = formatRelative(expiresInSec);
+const totalBytes = items.reduce((s, i) => s + i.size, 0);
+
+const renderedSnippets = await Promise.all(
+  items.map(async (i) =>
+    i.kind === "snippet" ? await highlight(i.content ?? "", i.language) : "",
+  ),
+);
+
+function formatRelative(sec: number): string {
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h`;
+  return `${Math.floor(sec / 86400)}d`;
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+---
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>{bundleId} · filebundle</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body class="min-h-screen bg-neutral-950 text-neutral-100 font-sans p-6">
+    <main class="max-w-2xl mx-auto space-y-5">
+      {created && (
+        <section class="rounded border border-emerald-700 bg-emerald-950/40 p-4 space-y-3">
+          <p class="text-emerald-300 text-sm">Bundle created. Share this URL:</p>
+          <div class="flex items-center gap-2">
+            <code class="flex-1 text-sm break-all">{bundleUrl}</code>
+            <button type="button" data-copy={bundleUrl} class="text-xs rounded bg-neutral-100 text-neutral-900 px-2 py-1">copy</button>
+          </div>
+          <div class="pt-2" set:html={qr}></div>
+        </section>
+      )}
+
+      <header class="flex items-center justify-between">
+        <div>
+          <h1 class="text-xl font-semibold font-mono">{bundleId}</h1>
+          <p class="text-neutral-400 text-sm">
+            expires in {expiresHuman} · {formatBytes(totalBytes)} · {items.length} item(s)
+          </p>
+        </div>
+        <a href="/" class="text-sm text-neutral-400 hover:text-neutral-200 underline">+ new bundle</a>
+      </header>
+
+      <section class="space-y-4">
+        {items.map((item, idx) => item.kind === "snippet" ? (
+          <article class="space-y-2">
+            <div class="flex items-center justify-between text-sm text-neutral-400">
+              <span>{item.name}{item.language ? ` · ${item.language}` : ""}</span>
+              <button type="button" data-copy={item.content ?? ""} class="text-xs underline hover:text-neutral-200">copy</button>
+            </div>
+            <div class="rounded overflow-auto text-sm" set:html={renderedSnippets[idx]}></div>
+          </article>
+        ) : (
+          <article class="flex items-center justify-between rounded border border-neutral-800 p-3">
+            <div>
+              <p class="font-mono text-sm">{item.name}</p>
+              <p class="text-xs text-neutral-500">
+                {formatBytes(item.size)}{item.mime ? ` · ${item.mime}` : ""}
+              </p>
+            </div>
+            <a href={`/api/files/${item.id}`} class="text-sm rounded bg-neutral-100 text-neutral-900 px-3 py-1.5">download</a>
+          </article>
+        ))}
+      </section>
+    </main>
+
+    <script is:inline>
+      for (const btn of document.querySelectorAll("[data-copy]")) {
+        btn.addEventListener("click", async () => {
+          const text = btn.getAttribute("data-copy") ?? "";
+          await navigator.clipboard.writeText(text);
+          const original = btn.textContent;
+          btn.textContent = "copied!";
+          setTimeout(() => { btn.textContent = original; }, 1200);
+        });
+      }
+    </script>
+  </body>
+</html>
