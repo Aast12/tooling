@@ -1,0 +1,17 @@
+node_modules/
+.pnpm-store/
+dist/
+.astro/
+.wrangler/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+!*.tfstate.example
+terraform.tfvars
+!terraform.tfvars.example
