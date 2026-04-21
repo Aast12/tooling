@@ -1,0 +1,30 @@
+---
+import "@/styles/global.css";
+const nextParam = Astro.url.searchParams.get("next") ?? "/";
+const error = Astro.url.searchParams.get("error") === "1";
+---
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>login · filebundle</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body class="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center">
+    <form method="POST" action="/api/login" class="w-full max-w-xs space-y-3">
+      <input type="hidden" name="next" value={nextParam} />
+      <input
+        type="password"
+        name="password"
+        placeholder="password"
+        autocomplete="current-password"
+        required
+        autofocus
+        class="w-full rounded px-3 py-2 bg-neutral-900 border border-neutral-800 focus:border-neutral-600 outline-none"
+      />
+      {error && <p class="text-red-400 text-sm">Incorrect password.</p>}
+      <button type="submit" class="w-full rounded bg-neutral-100 text-neutral-900 py-2 font-medium">
+        enter
+      </button>
+    </form>
+  </body>
+</html>
