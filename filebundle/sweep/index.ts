@@ -1,0 +1,19 @@
+import { sweepExpired } from "../src/lib/sweep";
+
+type SweepEnv = {
+  FILES: R2Bucket;
+  DB: D1Database;
+};
+
+export default {
+  async scheduled(
+    _event: ScheduledEvent,
+    env: SweepEnv,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    ctx.waitUntil(sweepExpired(env, Math.floor(Date.now() / 1000)));
+  },
+  async fetch(): Promise<Response> {
+    return new Response("filebundle sweep worker", { status: 200 });
+  },
+} satisfies ExportedHandler<SweepEnv>;

@@ -1,0 +1,21 @@
+name = "filebundle"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "filebundle"
+preview_bucket_name = "filebundle-preview"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "filebundle"
+database_id = "REPLACE_WITH_REAL_ID_AFTER_TERRAFORM_APPLY"
+migrations_dir = "migrations"
+
+[observability]
+enabled = true
+
+# Secrets (set via `wrangler secret put`):
+#   UPLOAD_PASSWORD
+#   SESSION_SECRET
