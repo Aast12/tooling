@@ -6,14 +6,10 @@ type SweepEnv = {
 };
 
 export default {
-  async scheduled(
-    _event: ScheduledEvent,
-    env: SweepEnv,
-    ctx: ExecutionContext,
-  ): Promise<void> {
+  async scheduled(_event, env, ctx) {
     ctx.waitUntil(sweepExpired(env, Math.floor(Date.now() / 1000)));
   },
-  async fetch(): Promise<Response> {
+  async fetch() {
     return new Response("filebundle sweep worker", { status: 200 });
   },
 } satisfies ExportedHandler<SweepEnv>;

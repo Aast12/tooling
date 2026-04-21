@@ -8,25 +8,25 @@ export function createTestD1(): D1Database {
   const migrationPath = path.resolve("migrations/0001_init.sql");
   db.exec(fs.readFileSync(migrationPath, "utf8"));
 
-  const d1: Partial<D1Database> = {
-    prepare(sql: string): D1PreparedStatement {
+  const d1 = {
+    prepare(sql: string) {
       let boundParams: unknown[] = [];
-      const stmt: Partial<D1PreparedStatement> = {
+      const stmt = {
         bind(...params: unknown[]) {
           boundParams = params;
-          return stmt as D1PreparedStatement;
+          return stmt;
         },
-        async first<T>() {
-          const row = db.prepare(sql).get(...boundParams) as T | undefined;
-          return (row ?? null) as T | null;
+        async first() {
+          const row = db.prepare(sql).get(...boundParams);
+          return row ?? null;
         },
-        async all<T>() {
-          const rows = db.prepare(sql).all(...boundParams) as T[];
+        async all() {
+          const rows = db.prepare(sql).all(...boundParams);
           return {
             results: rows,
             success: true,
             meta: {} as D1Meta,
-          } as D1Result<T>;
+          };
         },
         async run() {
           const info = db.prepare(sql).run(...boundParams);
@@ -41,23 +41,23 @@ export function createTestD1(): D1Database {
               rows_read: 0,
               rows_written: info.changes,
             },
-          } as unknown as D1Result;
+          };
         },
       };
-      return stmt as D1PreparedStatement;
+      return stmt;
     },
-    async batch<T = unknown>(statements: D1PreparedStatement[]) {
-      const results: D1Result<T>[] = [];
-      for (const s of statements) results.push((await (s as { run: () => Promise<D1Result<T>> }).run()));
+    async batch(statements: Array<{ run: () => Promise<unknown> }>) {
+      const results: unknown[] = [];
+      for (const s of statements) results.push(await s.run());
       return results;
     },
     async exec(sql: string) {
       db.exec(sql);
-      return { count: 0, duration: 0 } as D1ExecResult;
+      return { count: 0, duration: 0 };
     },
   };
 
-  return d1 as D1Database;
+  return d1 as unknown as D1Database;
 }
 
 type D1Meta = {
