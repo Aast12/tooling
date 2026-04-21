@@ -1,0 +1,4 @@
+cloudflare_api_token  = "REPLACE"
+cloudflare_account_id = "REPLACE"
+domain                = "alamst.me"
+subdomain             = "files"
