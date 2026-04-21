@@ -1,4 +1,5 @@
 import { createHighlighter, type Highlighter } from "shiki";
+import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 
 const SUPPORTED_LANGS = [
   "text", "bash", "shell", "json", "yaml", "toml", "ini",
@@ -15,6 +16,7 @@ function getHighlighter() {
     highlighterPromise = createHighlighter({
       themes: ["github-dark"],
       langs: SUPPORTED_LANGS as unknown as string[],
+      engine: createJavaScriptRegexEngine(),
     });
   }
   return highlighterPromise;
