@@ -8,6 +8,11 @@ export default defineConfig({
     testTimeout: 30_000,
   },
   resolve: {
-    alias: { "@": path.resolve("./src") },
+    alias: {
+      "@": path.resolve("./src"),
+      "cloudflare:workers": path.resolve(
+        "./tests/helpers/cloudflare-workers-mock.ts",
+      ),
+    },
   },
 });

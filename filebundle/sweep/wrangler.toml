@@ -10,7 +10,7 @@ bucket_name = "filebundle"
 [[d1_databases]]
 binding = "DB"
 database_name = "filebundle"
-database_id = "REPLACE_WITH_REAL_ID_AFTER_TERRAFORM_APPLY"
+database_id = "d5d5064d-814f-4025-ae59-e762a2fe96ae"
 
 [triggers]
 crons = ["0 * * * *"]

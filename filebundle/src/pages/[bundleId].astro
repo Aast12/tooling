@@ -1,19 +1,20 @@
 ---
 import "@/styles/global.css";
+import { env } from "cloudflare:workers";
 import { getBundle, getBundleItems } from "@/lib/db";
 import { highlight } from "@/lib/highlight";
 import { qrSvg } from "@/lib/qr";
 
 const { bundleId } = Astro.params as { bundleId: string };
-const env = Astro.locals.runtime.env;
+const e = env as Env;
 const now = Math.floor(Date.now() / 1000);
-const bundle = await getBundle(env.DB, bundleId, now);
+const bundle = await getBundle(e.DB, bundleId, now);
 
 if (!bundle) {
   return Astro.rewrite("/not-found");
 }
 
-const items = await getBundleItems(env.DB, bundleId);
+const items = await getBundleItems(e.DB, bundleId);
 const created = Astro.url.searchParams.get("created") === "1";
 const bundleUrl = `${Astro.url.origin}/${bundleId}`;
 const qr = created ? await qrSvg(bundleUrl) : "";

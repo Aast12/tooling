@@ -1,6 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createTestD1 } from "../helpers/sqlite-d1";
 import { createFakeR2, countObjects } from "../helpers/fake-r2";
+import { __setEnvForTesting } from "../helpers/cloudflare-workers-mock";
 import { POST as loginPost } from "@/pages/api/login";
 import { POST as bundlesPost } from "@/pages/api/bundles";
 import { GET as filesGet } from "@/pages/api/files/[id]";
@@ -10,40 +11,25 @@ import { SESSION_COOKIE_NAME, signSession } from "@/lib/auth";
 const PASSWORD = "test-password";
 const SECRET = "test-session-secret";
 
-interface Ctx {
-  db: D1Database;
-  bucket: R2Bucket;
-}
-
-let ctx: Ctx;
+let db: D1Database;
+let bucket: R2Bucket;
 
 beforeEach(() => {
-  ctx = {
-    db: createTestD1(),
-    bucket: createFakeR2(),
-  };
+  db = createTestD1();
+  bucket = createFakeR2();
+  __setEnvForTesting({
+    DB: db,
+    FILES: bucket,
+    UPLOAD_PASSWORD: PASSWORD,
+    SESSION_SECRET: SECRET,
+  });
 });
-
-function mockLocals(): App.Locals {
-  return {
-    authed: true,
-    runtime: {
-      env: {
-        DB: ctx.db,
-        FILES: ctx.bucket,
-        UPLOAD_PASSWORD: PASSWORD,
-        SESSION_SECRET: SECRET,
-      },
-      ctx: {} as ExecutionContext,
-    },
-  };
-}
 
 function mockAPIContext(request: Request, params: Record<string, string> = {}) {
   const url = new URL(request.url);
   return {
     request,
-    locals: mockLocals(),
+    locals: { authed: true },
     url,
     params,
     props: {},
@@ -117,8 +103,7 @@ describe("full bundle flow", () => {
       method: "POST",
       body: fd,
     });
-    const res = await bundlesPost(mockAPIContext(req));
-    return res;
+    return bundlesPost(mockAPIContext(req));
   }
 
   it("creates a bundle with file and snippet, redirects to bundle page", async () => {
@@ -128,7 +113,7 @@ describe("full bundle flow", () => {
     });
     expect(res.status).toBe(302);
     const loc = res.headers.get("Location")!;
-    expect(loc).toMatch(/^http:\/\/localhost\/[a-z]+-[a-z]+\?created=1$/);
+    expect(loc).toMatch(/^\/[a-z]+-[a-z]+\?created=1$/);
   });
 
   it("rejects empty bundle", async () => {
@@ -148,7 +133,7 @@ describe("full bundle flow", () => {
     await createBundle({
       files: [{ name: "hello.txt", content: "hello world" }],
     });
-    const { results } = await ctx.db
+    const { results } = await db
       .prepare("SELECT id FROM items WHERE kind = 'file' LIMIT 1")
       .all<{ id: string }>();
     const itemId = results[0].id;
@@ -160,30 +145,30 @@ describe("full bundle flow", () => {
     expect(await res.text()).toBe("hello world");
   });
 
-  it("returns 404 for expired bundle after sweep", async () => {
+  it("returns 0 bundles after sweep of expired", async () => {
     await createBundle({
       files: [{ name: "x.txt", content: "x" }],
       expiration: "1h",
     });
-    const { results: bundleRows } = await ctx.db
+    const { results: bundleRows } = await db
       .prepare("SELECT id FROM bundles LIMIT 1")
       .all<{ id: string }>();
     const bundleId = bundleRows[0].id;
-    expect(countObjects(ctx.bucket)).toBe(1);
+    expect(countObjects(bucket)).toBe(1);
 
-    await ctx.db
+    await db
       .prepare("UPDATE bundles SET expires_at = 1 WHERE id = ?")
       .bind(bundleId)
       .run();
 
     const deleted = await sweepExpired(
-      { DB: ctx.db, FILES: ctx.bucket },
+      { DB: db, FILES: bucket },
       9_999_999_999,
     );
     expect(deleted).toBe(1);
-    expect(countObjects(ctx.bucket)).toBe(0);
+    expect(countObjects(bucket)).toBe(0);
 
-    const { results: remaining } = await ctx.db
+    const { results: remaining } = await db
       .prepare("SELECT id FROM bundles WHERE id = ?")
       .bind(bundleId)
       .all();
@@ -195,8 +180,4 @@ describe("full bundle flow", () => {
     const token = await signSession(SECRET, now);
     expect(token.split(".")).toHaveLength(2);
   });
-});
-
-afterEach(() => {
-  // no-op; beforeEach builds fresh state
 });

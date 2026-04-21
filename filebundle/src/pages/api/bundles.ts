@@ -1,12 +1,13 @@
 import type { APIRoute } from "astro";
+import { env } from "cloudflare:workers";
 import { generateUniqueSlug } from "@/lib/id";
 import { expirationToSeconds, isValidExpiration } from "@/lib/expiration";
 import { validateUpload, type SnippetInput } from "@/lib/validation";
 import { insertItem, tryInsertBundle } from "@/lib/db";
 import { putFile } from "@/lib/r2";
 
-export const POST: APIRoute = async ({ request, locals, url }) => {
-  const env = locals.runtime.env;
+export const POST: APIRoute = async ({ request }) => {
+  const e = env as Env;
   const form = await request.formData();
 
   const files = form
@@ -25,15 +26,15 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   const expiresAt = now + expirationToSeconds(expiration);
 
   const slug = await generateUniqueSlug((candidate) =>
-    tryInsertBundle(env.DB, { id: candidate, createdAt: now, expiresAt }),
+    tryInsertBundle(e.DB, { id: candidate, createdAt: now, expiresAt }),
   );
 
   let position = 0;
   for (const file of files) {
     const itemId = crypto.randomUUID();
     const r2Key = `bundles/${slug}/${itemId}`;
-    await putFile(env.FILES, r2Key, file.stream(), file.type || null);
-    await insertItem(env.DB, {
+    await putFile(e.FILES, r2Key, file.stream(), file.type || null);
+    await insertItem(e.DB, {
       id: itemId,
       bundleId: slug,
       kind: "file",
@@ -50,7 +51,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   for (const s of snippets) {
     const itemId = crypto.randomUUID();
     const size = new TextEncoder().encode(s.content).length;
-    await insertItem(env.DB, {
+    await insertItem(e.DB, {
       id: itemId,
       bundleId: slug,
       kind: "snippet",
@@ -64,7 +65,10 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     });
   }
 
-  return Response.redirect(`${url.origin}/${slug}?created=1`, 302);
+  return new Response(null, {
+    status: 302,
+    headers: { Location: `/${slug}?created=1` },
+  });
 };
 
 function collectSnippets(form: FormData): SnippetInput[] {

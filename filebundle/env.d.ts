@@ -8,13 +8,12 @@ interface Env {
   SESSION_SECRET: string;
 }
 
+declare module "cloudflare:workers" {
+  export const env: Env;
+}
+
 declare namespace App {
   interface Locals {
     authed: boolean;
-    runtime: {
-      env: Env;
-      ctx: ExecutionContext;
-      cf?: IncomingRequestCfProperties;
-    };
   }
 }

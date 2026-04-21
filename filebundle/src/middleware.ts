@@ -1,4 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
+import { env } from "cloudflare:workers";
 import { SESSION_COOKIE_NAME, verifySession } from "@/lib/auth";
 
 const PUBLIC_PATHS = new Set(["/login", "/api/login"]);
@@ -17,21 +18,24 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     return next();
   }
 
-  const env = ctx.locals.runtime?.env;
-  if (!env) {
-    return new Response("Server misconfiguration", { status: 500 });
+  const secret = (env as Env).SESSION_SECRET;
+  if (!secret) {
+    return new Response("Server misconfiguration: SESSION_SECRET not set", { status: 500 });
   }
 
   const cookieHeader = ctx.request.headers.get("Cookie") ?? "";
   const token = parseCookie(cookieHeader, SESSION_COOKIE_NAME);
   const now = Math.floor(Date.now() / 1000);
   const result = token
-    ? await verifySession(env.SESSION_SECRET, token, now)
+    ? await verifySession(secret, token, now)
     : { valid: false as const };
 
   if (!result.valid) {
     const nextPath = encodeURIComponent(pathname + url.search);
-    return Response.redirect(`${url.origin}/login?next=${nextPath}`, 302);
+    return new Response(null, {
+      status: 302,
+      headers: { Location: `/login?next=${nextPath}` },
+    });
   }
 
   ctx.locals.authed = true;
