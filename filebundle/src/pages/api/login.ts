@@ -5,8 +5,9 @@ import { passwordMatches, sessionCookieHeader, signSession } from "@/lib/auth";
 export const POST: APIRoute = async ({ request }) => {
   const e = env as Env;
   const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
-  const { success } = await e.LOGIN_LIMITER.limit({ key: ip });
-  if (!success) {
+  const result = await e.LOGIN_LIMITER.limit({ key: ip });
+  console.log("LOGIN_LIMITER result:", JSON.stringify(result), "ip:", ip);
+  if (!result.success) {
     return new Response("Too many login attempts. Try again in a minute.", {
       status: 429,
       headers: { "Retry-After": "60" },
