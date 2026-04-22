@@ -93,7 +93,6 @@ gh secret set CLOUDFLARE_ACCOUNT_ID -R <owner>/<repo>
 
 The custom domain binding (`files.alamst.me`) is declared via `routes` in `wrangler.toml` — Cloudflare sets up DNS and certs automatically on first deploy, assuming the zone is on the same account.
 
-## Design docs
+## Rate limiting
 
-- [`docs/specs/2026-04-21-filebundle-design.md`](./docs/specs/2026-04-21-filebundle-design.md) — spec
-- [`docs/plans/2026-04-21-filebundle-implementation.md`](./docs/plans/2026-04-21-filebundle-implementation.md) — implementation plan
+`/api/login` is rate-limited to 5 requests per minute per IP via the Workers Rate Limiting binding `LOGIN_LIMITER` (declared in `wrangler.toml`). Exceeded requests return 429 with `Retry-After: 60`.

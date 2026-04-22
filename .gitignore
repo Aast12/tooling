@@ -8,6 +8,11 @@ dist/
 !.env.example
 .dev.vars
 .dev.vars.*
+# Claude-generated brainstorming output — local only, never committed
+**/docs/specs/
+**/docs/plans/
+docs/specs/
+docs/plans/
 *.log
 .DS_Store
 # Terraform

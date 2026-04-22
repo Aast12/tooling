@@ -22,6 +22,7 @@ beforeEach(() => {
     FILES: bucket,
     UPLOAD_PASSWORD: PASSWORD,
     SESSION_SECRET: SECRET,
+    LOGIN_LIMITER: { async limit() { return { success: true }; } },
   });
 });
 
