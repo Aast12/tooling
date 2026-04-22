@@ -17,9 +17,8 @@ database_name = "filebundle"
 database_id = "d5d5064d-814f-4025-ae59-e762a2fe96ae"
 migrations_dir = "migrations"
 
-[[unsafe.bindings]]
+[[ratelimits]]
 name = "LOGIN_LIMITER"
-type = "ratelimit"
 namespace_id = "1001"
 simple = { limit = 5, period = 60 }
 
