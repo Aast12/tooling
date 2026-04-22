@@ -1,16 +1,21 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { passwordMatches, sessionCookieHeader, signSession } from "@/lib/auth";
+import { checkAndIncrement } from "@/lib/ratelimit";
 
 export const POST: APIRoute = async ({ request }) => {
   const e = env as Env;
   const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
-  const result = await e.LOGIN_LIMITER.limit({ key: ip });
-  console.log("LOGIN_LIMITER result:", JSON.stringify(result), "ip:", ip);
-  if (!result.success) {
+  const rl = await checkAndIncrement({
+    kv: e.SESSION,
+    key: `login:${ip}`,
+    limit: 5,
+    windowSeconds: 60,
+  });
+  if (!rl.allowed) {
     return new Response("Too many login attempts. Try again in a minute.", {
       status: 429,
-      headers: { "Retry-After": "60" },
+      headers: { "Retry-After": String(rl.retryAfterSeconds) },
     });
   }
 

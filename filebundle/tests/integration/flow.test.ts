@@ -17,12 +17,22 @@ let bucket: R2Bucket;
 beforeEach(() => {
   db = createTestD1();
   bucket = createFakeR2();
+  const kvStore = new Map<string, string>();
+  const kv = {
+    async get(key: string, type?: string) {
+      const v = kvStore.get(key);
+      if (v == null) return null;
+      return type === "json" ? JSON.parse(v) : v;
+    },
+    async put(key: string, value: string) { kvStore.set(key, value); },
+    async delete(key: string) { kvStore.delete(key); },
+  };
   __setEnvForTesting({
     DB: db,
     FILES: bucket,
     UPLOAD_PASSWORD: PASSWORD,
     SESSION_SECRET: SECRET,
-    LOGIN_LIMITER: { async limit() { return { success: true }; } },
+    SESSION: kv,
   });
 });
 
