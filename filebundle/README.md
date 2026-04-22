@@ -3,6 +3,11 @@
 Temporary file + snippet transfer at `files.alamst.me`. Password-gated.
 Bundles auto-expire (1h default, 7d max) and are hard-deleted from R2.
 
+Two Workers share the same R2 bucket + D1 database:
+
+- **`filebundle`** — Astro SSR app at `files.alamst.me`. Upload UI, bundle view, download API, login.
+- **`filebundle-sweep`** — cron Worker (`0 * * * *`) that deletes bundles past their `expires_at` and their R2 objects.
+
 ## Local dev
 
 ```bash
@@ -11,69 +16,61 @@ pnpm --filter filebundle migrate:local
 pnpm --filter filebundle dev
 ```
 
-For local dev, create a `.dev.vars` at the project root with:
+Create `filebundle/.dev.vars` (gitignored) before first run:
 
 ```
-UPLOAD_PASSWORD=dev-password
-SESSION_SECRET=dev-secret-at-least-32-chars-long
+UPLOAD_PASSWORD=pick-anything-local
+SESSION_SECRET=any-random-string-at-least-32-chars
 ```
 
 ## Tests
 
 ```bash
-pnpm --filter filebundle test             # unit (31 tests)
-pnpm --filter filebundle test:integration # handler-level flow (8 tests)
+pnpm --filter filebundle test              # unit
+pnpm --filter filebundle test:integration  # handler flow
 ```
 
-## First deploy
+## Deploy
 
-1. Fill in Cloudflare credentials:
-   ```bash
-   cd filebundle/terraform
-   cp terraform.tfvars.example terraform.tfvars
-   ```
-2. Provision R2 bucket + D1 database:
-   ```bash
-   terraform init
-   terraform apply -target=cloudflare_r2_bucket.filebundle -target=cloudflare_d1_database.filebundle
-   ```
-3. Copy the `d1_database_id` output into `wrangler.toml` and `sweep/wrangler.toml` (replace `REPLACE_WITH_REAL_ID_AFTER_TERRAFORM_APPLY`).
-4. Set secrets (main Worker):
-   ```bash
-   cd ..
-   wrangler secret put UPLOAD_PASSWORD   # your shared password
-   wrangler secret put SESSION_SECRET    # openssl rand -hex 32
-   ```
-5. Apply D1 migrations:
-   ```bash
-   pnpm migrate:prod
-   ```
-6. Deploy the main Worker (Astro bundle) and the sweep Worker:
-   ```bash
-   pnpm deploy
-   wrangler deploy --config sweep/wrangler.toml
-   ```
-7. Bind the custom domain (requires the Worker script to exist):
-   ```bash
-   cd terraform
-   terraform apply
-   ```
+Pushes to `main` trigger `.github/workflows/deploy.yml` which runs tests, applies D1 migrations, and deploys both Workers. Two GitHub Actions secrets are needed:
 
-## Rotating the password
+- `CLOUDFLARE_API_TOKEN` — Workers Scripts + R2 + D1 + DNS edit scope
+- `CLOUDFLARE_ACCOUNT_ID`
+
+Production Worker secrets are set once via `wrangler secret put` (not via CI). Rotate when needed:
 
 ```bash
-wrangler secret put UPLOAD_PASSWORD    # new password
-wrangler secret put SESSION_SECRET     # rotate to force re-login
+cd filebundle
+pnpm wrangler secret put UPLOAD_PASSWORD    # new password
+pnpm wrangler secret put SESSION_SECRET     # invalidates existing session cookies
 ```
 
-## Architecture
+## Fresh install (cloning from scratch)
 
-Two Workers share the same R2 bucket + D1 database:
+If you forked or are re-provisioning:
 
-- **`filebundle`** — Astro SSR app at `files.alamst.me`. Serves the upload UI, bundle view, download API, login.
-- **`filebundle-sweep`** — cron Worker (`0 * * * *`) that deletes bundles past their `expires_at` and their R2 objects.
+```bash
+# 1. Create the R2 bucket and D1 database
+pnpm wrangler r2 bucket create filebundle
+pnpm wrangler d1 create filebundle
+# → copy the database_id from the output into wrangler.toml and sweep/wrangler.toml
 
-## Design
+# 2. Apply migrations
+pnpm --filter filebundle wrangler d1 migrations apply filebundle --remote --yes
 
-See [`docs/specs/2026-04-21-filebundle-design.md`](./docs/specs/2026-04-21-filebundle-design.md)
-and [`docs/plans/2026-04-21-filebundle-implementation.md`](./docs/plans/2026-04-21-filebundle-implementation.md).
+# 3. Set Worker secrets
+cd filebundle
+pnpm wrangler secret put UPLOAD_PASSWORD
+pnpm wrangler secret put SESSION_SECRET     # paste `openssl rand -hex 32`
+
+# 4. First deploy
+pnpm deploy
+pnpm wrangler deploy --config sweep/wrangler.toml
+
+# 5. Add GitHub Actions secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID; subsequent pushes auto-deploy.
+```
+
+## Design docs
+
+- [`docs/specs/2026-04-21-filebundle-design.md`](./docs/specs/2026-04-21-filebundle-design.md)
+- [`docs/plans/2026-04-21-filebundle-implementation.md`](./docs/plans/2026-04-21-filebundle-implementation.md)

@@ -2,6 +2,10 @@ name = "filebundle"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+routes = [
+  { pattern = "files.alamst.me", custom_domain = true },
+]
+
 [[r2_buckets]]
 binding = "FILES"
 bucket_name = "filebundle"
