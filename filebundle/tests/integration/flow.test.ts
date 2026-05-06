@@ -3,7 +3,8 @@ import { createTestD1 } from "../helpers/sqlite-d1";
 import { createFakeR2, countObjects } from "../helpers/fake-r2";
 import { __setEnvForTesting } from "../helpers/cloudflare-workers-mock";
 import { POST as loginPost } from "@/pages/api/login";
-import { POST as bundlesPost } from "@/pages/api/bundles";
+import { POST as bundlesPost } from "@/pages/api/bundles/index";
+import { POST as itemsPost } from "@/pages/api/bundles/[bundleId]/items";
 import { GET as filesGet } from "@/pages/api/files/[id]";
 import { sweepExpired } from "@/lib/sweep";
 import { SESSION_COOKIE_NAME, signSession } from "@/lib/auth";
@@ -190,5 +191,84 @@ describe("full bundle flow", () => {
     const now = Math.floor(Date.now() / 1000);
     const token = await signSession(SECRET, now);
     expect(token.split(".")).toHaveLength(2);
+  });
+
+  async function appendItems(
+    bundleId: string,
+    opts: {
+      files?: Array<{ name: string; content: string; type?: string }>;
+      snippets?: Array<{ name?: string; content: string; language?: string }>;
+    },
+  ) {
+    const fd = new FormData();
+    for (const f of opts.files ?? []) {
+      fd.append("files", new Blob([f.content], { type: f.type ?? "text/plain" }), f.name);
+    }
+    (opts.snippets ?? []).forEach((s, i) => {
+      const idx = i + 1;
+      fd.append(`snippet_content_${idx}`, s.content);
+      if (s.name) fd.append(`snippet_name_${idx}`, s.name);
+      if (s.language) fd.append(`snippet_language_${idx}`, s.language);
+    });
+    const req = new Request(`http://localhost/api/bundles/${bundleId}/items`, {
+      method: "POST",
+      body: fd,
+    });
+    return itemsPost(mockAPIContext(req, { bundleId }));
+  }
+
+  it("appends items to an existing bundle and preserves position order", async () => {
+    await createBundle({ files: [{ name: "first.txt", content: "1" }] });
+    const { results } = await db
+      .prepare("SELECT id FROM bundles LIMIT 1")
+      .all<{ id: string }>();
+    const bundleId = results[0].id;
+
+    const res = await appendItems(bundleId, {
+      files: [{ name: "second.txt", content: "22" }],
+      snippets: [{ content: "note body", name: "note" }],
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Location")).toBe(`/${bundleId}`);
+
+    const { results: items } = await db
+      .prepare(
+        "SELECT name, kind, position FROM items WHERE bundle_id = ? ORDER BY position ASC",
+      )
+      .bind(bundleId)
+      .all<{ name: string; kind: string; position: number }>();
+    expect(items.map((i) => i.name)).toEqual(["first.txt", "second.txt", "note"]);
+    expect(items.map((i) => i.position)).toEqual([0, 1, 2]);
+  });
+
+  it("returns 404 when appending to a missing bundle", async () => {
+    const res = await appendItems("does-not-exist", {
+      snippets: [{ content: "x" }],
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when appending to an expired bundle", async () => {
+    await createBundle({ snippets: [{ content: "x" }] });
+    const { results } = await db
+      .prepare("SELECT id FROM bundles LIMIT 1")
+      .all<{ id: string }>();
+    const bundleId = results[0].id;
+    await db
+      .prepare("UPDATE bundles SET expires_at = 1 WHERE id = ?")
+      .bind(bundleId)
+      .run();
+
+    const res = await appendItems(bundleId, { snippets: [{ content: "y" }] });
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects empty append", async () => {
+    await createBundle({ snippets: [{ content: "seed" }] });
+    const { results } = await db
+      .prepare("SELECT id FROM bundles LIMIT 1")
+      .all<{ id: string }>();
+    const res = await appendItems(results[0].id, {});
+    expect(res.status).toBe(400);
   });
 });

@@ -1,5 +1,6 @@
 ---
 import "@/styles/global.css";
+import BundleNav from "@/components/BundleNav.astro";
 Astro.response.status = 404;
 ---
 <html>
@@ -7,10 +8,11 @@ Astro.response.status = 404;
     <meta charset="utf-8" />
     <title>not found · filebundle</title>
   </head>
-  <body class="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center">
-    <div class="text-center space-y-2">
+  <body class="min-h-screen bg-neutral-950 text-neutral-100 font-sans p-6">
+    <BundleNav />
+    <main class="max-w-2xl mx-auto text-center space-y-2 pt-16">
       <p class="text-neutral-400">bundle not found or expired</p>
       <a href="/" class="underline text-neutral-200">new bundle</a>
-    </div>
+    </main>
   </body>
 </html>

@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { validateUpload, MAX_FILE_BYTES, MAX_ITEMS, MAX_SNIPPET_BYTES } from "@/lib/validation";
+import {
+  validateUpload,
+  validateAppend,
+  MAX_FILE_BYTES,
+  MAX_ITEMS,
+  MAX_SNIPPET_BYTES,
+  MAX_TOTAL_BYTES,
+} from "@/lib/validation";
 
 function makeFile(name: string, size: number): File {
   const blob = new Blob([new Uint8Array(size)]);
@@ -77,5 +84,70 @@ describe("validateUpload", () => {
       expiration: "24h",
     });
     expect(r.ok).toBe(true);
+  });
+});
+
+describe("validateAppend", () => {
+  it("accepts adding to a non-full bundle", () => {
+    const r = validateAppend({
+      files: [makeFile("a.txt", 10)],
+      snippets: [],
+      existingItems: 3,
+      existingBytes: 1000,
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it("rejects empty append", () => {
+    const r = validateAppend({
+      files: [],
+      snippets: [],
+      existingItems: 1,
+      existingBytes: 10,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/at least one/i);
+  });
+
+  it("rejects when total items would exceed MAX_ITEMS", () => {
+    const r = validateAppend({
+      files: [makeFile("a", 1), makeFile("b", 1)],
+      snippets: [],
+      existingItems: MAX_ITEMS - 1,
+      existingBytes: 0,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/exceed/i);
+  });
+
+  it("rejects when total bytes would exceed MAX_TOTAL_BYTES", () => {
+    const r = validateAppend({
+      files: [makeFile("big", 100)],
+      snippets: [],
+      existingItems: 1,
+      existingBytes: MAX_TOTAL_BYTES - 50,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/total/i);
+  });
+
+  it("rejects a single oversized file", () => {
+    const r = validateAppend({
+      files: [makeFile("huge", MAX_FILE_BYTES + 1)],
+      snippets: [],
+      existingItems: 0,
+      existingBytes: 0,
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects an oversized snippet", () => {
+    const r = validateAppend({
+      files: [],
+      snippets: [{ content: "x".repeat(MAX_SNIPPET_BYTES + 1) }],
+      existingItems: 0,
+      existingBytes: 0,
+    });
+    expect(r.ok).toBe(false);
   });
 });

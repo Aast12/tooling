@@ -7,6 +7,8 @@ interface Env {
   UPLOAD_PASSWORD: string;
   SESSION_SECRET: string;
   SESSION: KVNamespace;
+  POSTHOG_API_KEY?: string;
+  POSTHOG_HOST?: string;
 }
 
 declare module "cloudflare:workers" {

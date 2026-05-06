@@ -1,6 +1,7 @@
 ---
 import "@/styles/global.css";
 import { EXPIRATION_CHOICES, DEFAULT_EXPIRATION } from "@/lib/expiration";
+import BundleNav from "@/components/BundleNav.astro";
 ---
 <html>
   <head>
@@ -9,6 +10,7 @@ import { EXPIRATION_CHOICES, DEFAULT_EXPIRATION } from "@/lib/expiration";
     <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
   <body class="min-h-screen bg-neutral-950 text-neutral-100 font-sans p-6">
+    <BundleNav />
     <main class="max-w-2xl mx-auto space-y-6">
       <header>
         <h1 class="text-xl font-semibold">filebundle</h1>

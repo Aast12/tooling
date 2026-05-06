@@ -85,6 +85,29 @@ export async function getBundleItems(db: D1Database, bundleId: string): Promise<
   return results ?? [];
 }
 
+export interface BundleStats {
+  count: number;
+  totalBytes: number;
+  maxPosition: number;
+}
+
+export async function getBundleStats(
+  db: D1Database,
+  bundleId: string,
+): Promise<BundleStats> {
+  const row = await db
+    .prepare(
+      "SELECT COUNT(*) AS count, COALESCE(SUM(size), 0) AS total_bytes, COALESCE(MAX(position), -1) AS max_position FROM items WHERE bundle_id = ?",
+    )
+    .bind(bundleId)
+    .first<{ count: number; total_bytes: number; max_position: number }>();
+  return {
+    count: row?.count ?? 0,
+    totalBytes: row?.total_bytes ?? 0,
+    maxPosition: row?.max_position ?? -1,
+  };
+}
+
 export async function getItem(
   db: D1Database,
   id: string,

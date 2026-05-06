@@ -1,0 +1,52 @@
+---
+interface Props {
+  currentBundleId?: string;
+}
+const { currentBundleId } = Astro.props;
+---
+<header class="border-b border-neutral-800 -mx-6 px-6 pb-3 mb-6">
+  <div class="max-w-2xl mx-auto flex items-center justify-between gap-3">
+    <a href="/" class="text-sm font-semibold text-neutral-200 hover:text-neutral-100">filebundle</a>
+
+    <div class="flex items-center gap-2 text-xs">
+      {currentBundleId && (
+        <span class="hidden sm:inline text-neutral-500">on <code class="font-mono text-neutral-300">{currentBundleId}</code></span>
+      )}
+      <form data-bundle-nav class="flex items-center gap-1.5" role="search" aria-label="open bundle">
+        <input
+          type="text"
+          name="slug"
+          placeholder="open bundle…"
+          autocomplete="off"
+          spellcheck="false"
+          autocapitalize="off"
+          class="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 font-mono text-neutral-100 placeholder:text-neutral-600 w-36 sm:w-44 focus:outline-none focus:border-neutral-600"
+        />
+        <button type="submit" class="rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-100 px-2 py-1">
+          go
+        </button>
+      </form>
+    </div>
+  </div>
+</header>
+
+<script is:inline>
+  (function () {
+    for (const form of document.querySelectorAll("[data-bundle-nav]")) {
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const input = form.querySelector('input[name="slug"]');
+        const raw = (input && input.value ? input.value : "").trim();
+        if (!raw) return;
+        // accept a slug, a path, or a full URL pasted in
+        let slug = raw
+          .replace(/^https?:\/\/[^/]+\//i, "")
+          .replace(/^\/+/, "")
+          .replace(/[?#].*$/, "")
+          .replace(/\/+$/, "");
+        if (!slug) return;
+        window.location.href = "/" + encodeURIComponent(slug);
+      });
+    }
+  })();
+</script>

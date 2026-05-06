@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import { getBundle, getBundleItems } from "@/lib/db";
 import { highlight } from "@/lib/highlight";
 import { qrSvg } from "@/lib/qr";
+import BundleNav from "@/components/BundleNav.astro";
 
 const { bundleId } = Astro.params as { bundleId: string };
 const e = env as Env;
@@ -49,6 +50,7 @@ function formatBytes(n: number): string {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
   <body class="min-h-screen bg-neutral-950 text-neutral-100 font-sans p-6">
+    <BundleNav currentBundleId={bundleId} />
     <main class="max-w-2xl mx-auto space-y-5">
       {created && (
         <section class="rounded border border-emerald-700 bg-emerald-950/40 p-4 space-y-3">
@@ -61,14 +63,11 @@ function formatBytes(n: number): string {
         </section>
       )}
 
-      <header class="flex items-center justify-between">
-        <div>
-          <h1 class="text-xl font-semibold font-mono">{bundleId}</h1>
-          <p class="text-neutral-400 text-sm">
-            expires in {expiresHuman} · {formatBytes(totalBytes)} · {items.length} item(s)
-          </p>
-        </div>
-        <a href="/" class="text-sm text-neutral-400 hover:text-neutral-200 underline">+ new bundle</a>
+      <header>
+        <h1 class="text-xl font-semibold font-mono">{bundleId}</h1>
+        <p class="text-neutral-400 text-sm">
+          expires in {expiresHuman} · {formatBytes(totalBytes)} · {items.length} item(s)
+        </p>
       </header>
 
       <section class="space-y-4">
@@ -92,6 +91,36 @@ function formatBytes(n: number): string {
           </article>
         ))}
       </section>
+
+      <section class="border-t border-neutral-800 pt-5">
+        <details class="space-y-4" open={items.length === 0}>
+          <summary class="cursor-pointer text-sm text-neutral-400 hover:text-neutral-200 select-none">
+            + add to this bundle
+          </summary>
+          <form method="POST" action={`/api/bundles/${bundleId}/items`} enctype="multipart/form-data" class="space-y-5 pt-3">
+            <div>
+              <label class="block text-sm text-neutral-400 mb-2">Files</label>
+              <input
+                type="file"
+                name="files"
+                multiple
+                class="block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-neutral-800 file:px-3 file:py-2 file:text-neutral-100 hover:file:bg-neutral-700"
+              />
+            </div>
+
+            <div id="snippet-list" class="space-y-3">
+              <label class="block text-sm text-neutral-400">Text snippets</label>
+            </div>
+            <button type="button" id="add-snippet" class="text-sm text-neutral-400 hover:text-neutral-200 underline">
+              + add snippet
+            </button>
+
+            <button type="submit" class="rounded bg-neutral-100 text-neutral-900 px-5 py-2 font-medium">
+              add to bundle
+            </button>
+          </form>
+        </details>
+      </section>
     </main>
 
     <script is:inline>
@@ -104,6 +133,31 @@ function formatBytes(n: number): string {
           setTimeout(() => { btn.textContent = original; }, 1200);
         });
       }
+
+      (function () {
+        const list = document.getElementById("snippet-list");
+        const addBtn = document.getElementById("add-snippet");
+        if (!list || !addBtn) return;
+        let counter = 0;
+        addBtn.addEventListener("click", () => {
+          counter += 1;
+          const wrap = document.createElement("div");
+          wrap.className = "space-y-2 border border-neutral-800 rounded p-3";
+          wrap.innerHTML = `
+            <input type="text" name="snippet_name_${counter}" placeholder="name (optional)"
+              class="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm" />
+            <textarea name="snippet_content_${counter}" rows="4" placeholder="paste text…"
+              class="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm font-mono"></textarea>
+            <div class="flex gap-2 items-center">
+              <input type="text" name="snippet_language_${counter}" placeholder="language (optional, e.g. ts)"
+                class="flex-1 bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs" />
+              <button type="button" class="text-xs text-red-400 hover:text-red-300" data-remove>remove</button>
+            </div>
+          `;
+          wrap.querySelector("[data-remove]").addEventListener("click", () => wrap.remove());
+          list.appendChild(wrap);
+        });
+      })();
     </script>
   </body>
 </html>

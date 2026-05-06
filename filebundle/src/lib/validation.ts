@@ -21,6 +21,45 @@ export type ValidateResult =
   | { ok: true; expiration: Expiration }
   | { ok: false; error: string };
 
+export type AppendResult = { ok: true } | { ok: false; error: string };
+
+export interface AppendInput {
+  files: File[];
+  snippets: SnippetInput[];
+  existingItems: number;
+  existingBytes: number;
+}
+
+export function validateAppend(input: AppendInput): AppendResult {
+  const incoming = input.files.length + input.snippets.length;
+  if (incoming === 0) {
+    return { ok: false, error: "Must add at least one item" };
+  }
+  if (input.existingItems + incoming > MAX_ITEMS) {
+    return {
+      ok: false,
+      error: `Bundle would exceed ${MAX_ITEMS} items (has ${input.existingItems}, adding ${incoming})`,
+    };
+  }
+  let sum = input.existingBytes;
+  for (const f of input.files) {
+    if (f.size > MAX_FILE_BYTES) {
+      return { ok: false, error: `File ${f.name} exceeds ${MAX_FILE_BYTES} bytes` };
+    }
+    sum += f.size;
+  }
+  if (sum > MAX_TOTAL_BYTES) {
+    return { ok: false, error: `Bundle total would exceed ${MAX_TOTAL_BYTES} bytes` };
+  }
+  for (const s of input.snippets) {
+    const size = new TextEncoder().encode(s.content).length;
+    if (size > MAX_SNIPPET_BYTES) {
+      return { ok: false, error: `Snippet exceeds ${MAX_SNIPPET_BYTES} bytes` };
+    }
+  }
+  return { ok: true };
+}
+
 export function validateUpload(input: UploadInput): ValidateResult {
   if (!isValidExpiration(input.expiration)) {
     return { ok: false, error: `Invalid expiration: ${input.expiration}` };

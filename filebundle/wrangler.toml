@@ -23,3 +23,5 @@ enabled = true
 # Secrets (set via `wrangler secret put`):
 #   UPLOAD_PASSWORD
 #   SESSION_SECRET
+#   POSTHOG_API_KEY    (optional — enables server-side analytics)
+#   POSTHOG_HOST       (optional — defaults to https://us.i.posthog.com; use https://eu.i.posthog.com for EU)
