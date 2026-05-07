@@ -1,0 +1,41 @@
+{
+  "name": "filebundle",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Fork: replace with your own custom domain, or delete this `routes` array
+  // entirely to use the *.workers.dev URL.
+  "routes": [
+    { "pattern": "files.alamst.me", "custom_domain": true }
+  ],
+
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "filebundle",
+      "preview_bucket_name": "filebundle-preview"
+    }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "filebundle",
+      // Fork: delete this `database_id` line; `wrangler deploy` will auto-provision.
+      "database_id": "d5d5064d-814f-4025-ae59-e762a2fe96ae",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      // Fork: delete this `id` line; `wrangler deploy` will auto-provision.
+      "id": "dce90cfffcdf42fcb55a03f8341d5881"
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+}

@@ -11,20 +11,17 @@ Two Cloudflare Workers share one R2 bucket and one D1 database:
 | `filebundle` | Astro SSR — upload UI, bundle view, download API, login | HTTP at `files.alamst.me` |
 | `filebundle-sweep` | Deletes bundles past their `expires_at` + their R2 objects | Cron `0 * * * *` |
 
-Provisioned infrastructure (already exists — do not recreate):
-
-- R2 bucket: `filebundle`
-- D1 database: `filebundle` (id in `wrangler.toml`)
+Resources (R2 bucket, D1 database, KV namespace) are declared as bindings in `wrangler.jsonc` and `sweep/wrangler.jsonc`. The upstream's resource ids are committed alongside; forks delete them and let [`wrangler deploy`'s auto-provisioning](https://developers.cloudflare.com/changelog/post/2025-10-24-automatic-resource-provisioning/) create the same resources on their own account. See [Fork & deploy your own](#fork--deploy-your-own).
 
 ## Updating the app
 
 Push to `main`. That's it.
 
-`.github/workflows/deploy.yml` runs on every push that touches `filebundle/**`, the workflow file itself, or `pnpm-lock.yaml`. It installs deps, runs unit + integration tests, applies any new D1 migrations, and deploys both Workers. Watch a run with `gh run watch -R Aast12/tooling`.
+`.github/workflows/deploy.yml` runs on every push that touches `filebundle/**`, the workflow file itself, or `pnpm-lock.yaml`. It installs deps, runs unit + integration tests, applies any new D1 migrations, and deploys both Workers.
 
-GitHub Actions secrets (already configured on `Aast12/tooling`):
+GitHub Actions secrets required on the repo:
 
-- `CLOUDFLARE_API_TOKEN` — Workers Scripts edit + R2 edit + D1 edit + DNS edit scope
+- `CLOUDFLARE_API_TOKEN` — Workers + R2 + D1 + KV edit (+ DNS edit if using a custom domain)
 - `CLOUDFLARE_ACCOUNT_ID`
 
 ## Local dev
@@ -62,38 +59,32 @@ echo -n "new-password" | pnpm wrangler secret put UPLOAD_PASSWORD
 openssl rand -hex 32 | pnpm wrangler secret put SESSION_SECRET   # invalidates all session cookies
 ```
 
-## Fresh install (cloning from scratch)
-
-Only needed if you're re-provisioning from zero.
+## Fork & deploy your own
 
 ```bash
-# 0. Set Cloudflare auth for wrangler
-export CLOUDFLARE_API_TOKEN=...           # Workers + R2 + D1 + DNS edit scope
-export CLOUDFLARE_ACCOUNT_ID=...
-
-# 1. Create R2 bucket + D1 database
-cd filebundle
-pnpm wrangler r2 bucket create filebundle
-pnpm wrangler d1 create filebundle
-# → copy the database_id from the output into wrangler.toml AND sweep/wrangler.toml
-
-# 2. Apply D1 migrations
-pnpm wrangler d1 migrations apply filebundle --remote
-
-# 3. Set Worker secrets
-echo -n "your-password" | pnpm wrangler secret put UPLOAD_PASSWORD
-openssl rand -hex 32 | pnpm wrangler secret put SESSION_SECRET
-
-# 4. First deploy
-pnpm run deploy
-pnpm wrangler deploy --config sweep/wrangler.toml
-
-# 5. For ongoing push-to-main deploys, add repo secrets:
-gh secret set CLOUDFLARE_API_TOKEN -R <owner>/<repo>
-gh secret set CLOUDFLARE_ACCOUNT_ID -R <owner>/<repo>
+git clone <your-fork-url> && cd <your-fork>/filebundle
 ```
 
-The custom domain binding (`files.alamst.me`) is declared via `routes` in `wrangler.toml` — Cloudflare sets up DNS and certs automatically on first deploy, assuming the zone is on the same account.
+Edit `wrangler.jsonc` and `sweep/wrangler.jsonc`: delete the lines marked `// Fork:` (the `database_id`, KV `id`, and the `routes` block — or replace `routes` with your own custom domain).
+
+```bash
+pnpm install
+export CLOUDFLARE_API_TOKEN=...     # Workers + R2 + D1 + KV edit (+ DNS if using a custom domain)
+export CLOUDFLARE_ACCOUNT_ID=...
+
+pnpm wrangler deploy                # auto-provisions R2 + D1 + KV by binding name on first run
+pnpm wrangler d1 migrations apply filebundle --remote
+pnpm wrangler deploy --config sweep/wrangler.jsonc
+
+echo -n "your-password" | pnpm wrangler secret put UPLOAD_PASSWORD
+openssl rand -hex 32    | pnpm wrangler secret put SESSION_SECRET
+```
+
+Cloudflare links the auto-provisioned resources to your worker server-side — they stay attached on every subsequent deploy without needing the ids in `wrangler.jsonc`.
+
+For push-to-main deploys via the included GitHub Actions workflow, add `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` as repo secrets on your fork.
+
+The `routes` block (custom domain) is the one thing auto-provisioning won't handle — set it to a hostname whose zone is on the same Cloudflare account, and DNS + certs are wired up automatically on first deploy.
 
 ## Server-side sessions (curl)
 
@@ -124,7 +115,7 @@ Limits apply to the whole bundle, not each request: max 20 items, 500 MB per fil
 
 ## Rate limiting
 
-`/api/login` is rate-limited to 5 requests per minute per IP via the Workers Rate Limiting binding `LOGIN_LIMITER` (declared in `wrangler.toml`). Exceeded requests return 429 with `Retry-After: 60`.
+`/api/login` is rate-limited to 5 requests per minute per IP. The limiter is backed by the `SESSION` KV namespace (sliding window). Exceeded requests return 429 with `Retry-After: 60`.
 
 ## Analytics
 

@@ -1,0 +1,31 @@
+{
+  "name": "filebundle-sweep",
+  "main": "index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "filebundle"
+    }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "filebundle",
+      // Fork: delete this `database_id` line; `wrangler deploy` will auto-provision
+      // (or, if the main worker has already provisioned this db, paste its id here).
+      "database_id": "d5d5064d-814f-4025-ae59-e762a2fe96ae"
+    }
+  ],
+
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}
