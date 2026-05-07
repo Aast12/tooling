@@ -17,6 +17,14 @@ database_name = "filebundle"
 database_id = "d5d5064d-814f-4025-ae59-e762a2fe96ae"
 migrations_dir = "migrations"
 
+# Used both by Astro's session feature (transparently) and by the KV-backed
+# login rate limiter in src/lib/ratelimit.ts. Without this binding in
+# production, /api/login throws on `e.SESSION.get(...)` and returns 500.
+# Create with: `wrangler kv namespace create SESSION` and paste the id below.
+[[kv_namespaces]]
+binding = "SESSION"
+id = "dce90cfffcdf42fcb55a03f8341d5881"
+
 [observability]
 enabled = true
 

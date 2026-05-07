@@ -141,15 +141,15 @@ export async function capturePostHog(
   }
 }
 
-interface RuntimeWithCtx {
-  ctx?: { waitUntil?: (p: Promise<unknown>) => void };
+interface CfContextLike {
+  waitUntil?: (p: Promise<unknown>) => void;
 }
 
 export function getWaitUntil(locals: unknown): (p: Promise<unknown>) => void {
-  const runtime = (locals as { runtime?: RuntimeWithCtx } | undefined)?.runtime;
-  const wait = runtime?.ctx?.waitUntil;
+  const cfContext = (locals as { cfContext?: CfContextLike } | undefined)?.cfContext;
+  const wait = cfContext?.waitUntil;
   if (typeof wait === "function") {
-    return (p) => wait.call(runtime!.ctx, p);
+    return (p) => wait.call(cfContext, p);
   }
   return (p) => {
     void p.catch(() => {});

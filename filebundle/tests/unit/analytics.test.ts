@@ -107,18 +107,31 @@ describe("capturePostHog", () => {
 });
 
 describe("getWaitUntil", () => {
-  it("uses ctx.waitUntil when present", async () => {
+  it("uses cfContext.waitUntil when present", async () => {
     const spy = vi.fn();
-    const wait = getWaitUntil({ runtime: { ctx: { waitUntil: spy } } });
+    const wait = getWaitUntil({ cfContext: { waitUntil: spy } });
     const p = Promise.resolve("ok");
     wait(p);
     expect(spy).toHaveBeenCalledWith(p);
   });
 
-  it("falls back gracefully when runtime ctx is missing", async () => {
+  it("falls back gracefully when cfContext is missing", async () => {
     const wait = getWaitUntil(undefined);
     expect(() => wait(Promise.resolve())).not.toThrow();
     // and rejected promises don't escape
     expect(() => wait(Promise.reject(new Error("x")))).not.toThrow();
+  });
+
+  it("does not read locals.runtime.ctx (which throws in Astro v6)", () => {
+    const locals: { cfContext: { waitUntil: (p: Promise<unknown>) => void }; runtime: object } = {
+      cfContext: { waitUntil: vi.fn() },
+      runtime: {},
+    };
+    Object.defineProperty(locals.runtime, "ctx", {
+      get() {
+        throw new Error("locals.runtime.ctx is removed");
+      },
+    });
+    expect(() => getWaitUntil(locals)(Promise.resolve())).not.toThrow();
   });
 });
