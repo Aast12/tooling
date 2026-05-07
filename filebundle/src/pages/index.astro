@@ -1,6 +1,7 @@
 ---
 import "@/styles/global.css";
 import { EXPIRATION_CHOICES, DEFAULT_EXPIRATION } from "@/lib/expiration";
+import { formatBytes, MAX_FILE_BYTES, MAX_TOTAL_BYTES } from "@/lib/validation";
 import BundleNav from "@/components/BundleNav.astro";
 ---
 <html>
@@ -17,7 +18,15 @@ import BundleNav from "@/components/BundleNav.astro";
         <p class="text-neutral-400 text-sm">Temporary files and snippets. Bundle, share, forget.</p>
       </header>
 
-      <form id="upload-form" method="POST" action="/api/bundles" enctype="multipart/form-data" class="space-y-5">
+      <form
+        id="upload-form"
+        method="POST"
+        action="/api/bundles"
+        enctype="multipart/form-data"
+        class="space-y-5"
+        data-max-file={MAX_FILE_BYTES}
+        data-max-total={MAX_TOTAL_BYTES}
+      >
         <div>
           <label class="block text-sm text-neutral-400 mb-2">Files</label>
           <input
@@ -26,8 +35,16 @@ import BundleNav from "@/components/BundleNav.astro";
             multiple
             class="block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-neutral-800 file:px-3 file:py-2 file:text-neutral-100 hover:file:bg-neutral-700"
           />
-          <p class="text-xs text-neutral-500 mt-1">Max 100 MB per file, 500 MB total.</p>
+          <p class="text-xs text-neutral-500 mt-1">
+            Max {formatBytes(MAX_FILE_BYTES)} per file, {formatBytes(MAX_TOTAL_BYTES)} total.
+          </p>
         </div>
+
+        <p
+          id="upload-error"
+          class="hidden rounded border border-red-700 bg-red-950/40 text-red-300 text-sm px-3 py-2"
+          role="alert"
+        ></p>
 
         <div id="snippet-list" class="space-y-3">
           <label class="block text-sm text-neutral-400">Text snippets</label>
@@ -52,6 +69,65 @@ import BundleNav from "@/components/BundleNav.astro";
     </main>
 
     <script is:inline>
+      (function () {
+        const form = document.getElementById("upload-form");
+        const fileInput = form.querySelector('input[type="file"][name="files"]');
+        const errorEl = document.getElementById("upload-error");
+        const maxFile = Number(form.dataset.maxFile);
+        const maxTotal = Number(form.dataset.maxTotal);
+
+        function fmt(n) {
+          if (n < 1024) return n + " B";
+          if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+          if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB";
+          return (n / 1073741824).toFixed(2) + " GB";
+        }
+
+        function showError(msg) {
+          errorEl.textContent = msg;
+          errorEl.classList.remove("hidden");
+          errorEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+
+        function clearError() {
+          errorEl.textContent = "";
+          errorEl.classList.add("hidden");
+        }
+
+        function validateFiles() {
+          const files = fileInput.files ? Array.from(fileInput.files) : [];
+          let total = 0;
+          for (const f of files) {
+            if (f.size > maxFile) {
+              return `File "${f.name}" (${fmt(f.size)}) exceeds the ${fmt(maxFile)} per-file limit.`;
+            }
+            total += f.size;
+          }
+          if (total > maxTotal) {
+            return `Bundle total (${fmt(total)}) would exceed the ${fmt(maxTotal)} bundle limit.`;
+          }
+          return null;
+        }
+
+        fileInput.addEventListener("change", () => {
+          const err = validateFiles();
+          if (err) {
+            showError(err);
+            fileInput.value = "";
+          } else {
+            clearError();
+          }
+        });
+
+        form.addEventListener("submit", (ev) => {
+          const err = validateFiles();
+          if (err) {
+            ev.preventDefault();
+            showError(err);
+          }
+        });
+      })();
+
       (function () {
         const list = document.getElementById("snippet-list");
         const addBtn = document.getElementById("add-snippet");

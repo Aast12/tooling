@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import { getBundle, getBundleItems } from "@/lib/db";
 import { highlight } from "@/lib/highlight";
 import { qrSvg } from "@/lib/qr";
+import { formatBytes, MAX_FILE_BYTES, MAX_TOTAL_BYTES } from "@/lib/validation";
 import BundleNav from "@/components/BundleNav.astro";
 
 const { bundleId } = Astro.params as { bundleId: string };
@@ -36,12 +37,7 @@ function formatRelative(sec: number): string {
   return `${Math.floor(sec / 86400)}d`;
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
+const remainingBytes = Math.max(0, MAX_TOTAL_BYTES - totalBytes);
 ---
 <html>
   <head>
@@ -97,7 +93,15 @@ function formatBytes(n: number): string {
           <summary class="cursor-pointer text-sm text-neutral-400 hover:text-neutral-200 select-none">
             + add to this bundle
           </summary>
-          <form method="POST" action={`/api/bundles/${bundleId}/items`} enctype="multipart/form-data" class="space-y-5 pt-3">
+          <form
+            id="append-form"
+            method="POST"
+            action={`/api/bundles/${bundleId}/items`}
+            enctype="multipart/form-data"
+            class="space-y-5 pt-3"
+            data-max-file={MAX_FILE_BYTES}
+            data-remaining={remainingBytes}
+          >
             <div>
               <label class="block text-sm text-neutral-400 mb-2">Files</label>
               <input
@@ -106,7 +110,16 @@ function formatBytes(n: number): string {
                 multiple
                 class="block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-neutral-800 file:px-3 file:py-2 file:text-neutral-100 hover:file:bg-neutral-700"
               />
+              <p class="text-xs text-neutral-500 mt-1">
+                Max {formatBytes(MAX_FILE_BYTES)} per file · {formatBytes(remainingBytes)} remaining in this bundle.
+              </p>
             </div>
+
+            <p
+              id="append-error"
+              class="hidden rounded border border-red-700 bg-red-950/40 text-red-300 text-sm px-3 py-2"
+              role="alert"
+            ></p>
 
             <div id="snippet-list" class="space-y-3">
               <label class="block text-sm text-neutral-400">Text snippets</label>
@@ -133,6 +146,66 @@ function formatBytes(n: number): string {
           setTimeout(() => { btn.textContent = original; }, 1200);
         });
       }
+
+      (function () {
+        const form = document.getElementById("append-form");
+        if (!form) return;
+        const fileInput = form.querySelector('input[type="file"][name="files"]');
+        const errorEl = document.getElementById("append-error");
+        const maxFile = Number(form.dataset.maxFile);
+        const remaining = Number(form.dataset.remaining);
+
+        function fmt(n) {
+          if (n < 1024) return n + " B";
+          if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+          if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB";
+          return (n / 1073741824).toFixed(2) + " GB";
+        }
+
+        function showError(msg) {
+          errorEl.textContent = msg;
+          errorEl.classList.remove("hidden");
+          errorEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+
+        function clearError() {
+          errorEl.textContent = "";
+          errorEl.classList.add("hidden");
+        }
+
+        function validateFiles() {
+          const files = fileInput.files ? Array.from(fileInput.files) : [];
+          let total = 0;
+          for (const f of files) {
+            if (f.size > maxFile) {
+              return `File "${f.name}" (${fmt(f.size)}) exceeds the ${fmt(maxFile)} per-file limit.`;
+            }
+            total += f.size;
+          }
+          if (total > remaining) {
+            return `Selected files (${fmt(total)}) exceed this bundle's remaining capacity (${fmt(remaining)}).`;
+          }
+          return null;
+        }
+
+        fileInput.addEventListener("change", () => {
+          const err = validateFiles();
+          if (err) {
+            showError(err);
+            fileInput.value = "";
+          } else {
+            clearError();
+          }
+        });
+
+        form.addEventListener("submit", (ev) => {
+          const err = validateFiles();
+          if (err) {
+            ev.preventDefault();
+            showError(err);
+          }
+        });
+      })();
 
       (function () {
         const list = document.getElementById("snippet-list");

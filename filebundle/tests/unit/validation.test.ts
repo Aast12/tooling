@@ -9,8 +9,11 @@ import {
 } from "@/lib/validation";
 
 function makeFile(name: string, size: number): File {
-  const blob = new Blob([new Uint8Array(size)]);
-  return new File([blob], name, { type: "application/octet-stream" });
+  // Allocate a small payload but fake the reported size so tests can use
+  // the production limits (which are GB-scale) without exhausting memory.
+  const file = new File([new Uint8Array(1)], name, { type: "application/octet-stream" });
+  Object.defineProperty(file, "size", { value: size, configurable: true });
+  return file;
 }
 
 describe("validateUpload", () => {
@@ -45,16 +48,17 @@ describe("validateUpload", () => {
     if (!r.ok) expect(r.error).toMatch(/20/);
   });
 
-  it("rejects a single file over 100MB", () => {
+  it("rejects a single file over MAX_FILE_BYTES", () => {
     const r = validateUpload({
       files: [makeFile("big", MAX_FILE_BYTES + 1)],
       snippets: [],
       expiration: "1h",
     });
     expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/per-file limit/i);
   });
 
-  it("rejects total over 500MB", () => {
+  it("rejects total over MAX_TOTAL_BYTES", () => {
     const files = [
       makeFile("a", MAX_FILE_BYTES),
       makeFile("b", MAX_FILE_BYTES),

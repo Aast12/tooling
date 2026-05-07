@@ -120,7 +120,7 @@ curl -b /tmp/fb.jar \
   https://files.alamst.me/api/bundles/$SLUG/items
 ```
 
-Limits apply to the whole bundle, not each request: max 20 items, 100 MB per file, 500 MB total. The endpoint returns `400` if a request would push the bundle past those limits, and `404` if the bundle has expired.
+Limits apply to the whole bundle, not each request: max 20 items, 500 MB per file, 500 MB total. The endpoint returns `400` if a request would push the bundle past those limits, and `404` if the bundle has expired.
 
 ## Rate limiting
 
