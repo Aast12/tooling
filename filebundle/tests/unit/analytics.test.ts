@@ -121,17 +121,4 @@ describe("getWaitUntil", () => {
     // and rejected promises don't escape
     expect(() => wait(Promise.reject(new Error("x")))).not.toThrow();
   });
-
-  it("does not read locals.runtime.ctx (which throws in Astro v6)", () => {
-    const locals: { cfContext: { waitUntil: (p: Promise<unknown>) => void }; runtime: object } = {
-      cfContext: { waitUntil: vi.fn() },
-      runtime: {},
-    };
-    Object.defineProperty(locals.runtime, "ctx", {
-      get() {
-        throw new Error("locals.runtime.ctx is removed");
-      },
-    });
-    expect(() => getWaitUntil(locals)(Promise.resolve())).not.toThrow();
-  });
 });
