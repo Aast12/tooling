@@ -1,30 +1,74 @@
 ---
 import "@/styles/global.css";
+import Icon from "@/components/Icon.astro";
+import IconTile from "@/components/IconTile.astro";
+import ShortcutHint from "@/components/ShortcutHint.astro";
 const nextParam = Astro.url.searchParams.get("next") ?? "/";
 const error = Astro.url.searchParams.get("error") === "1";
 ---
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>login · filebundle</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>sign in · filebundle</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+    />
   </head>
-  <body class="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center">
-    <form method="POST" action="/api/login" class="w-full max-w-xs space-y-3">
-      <input type="hidden" name="next" value={nextParam} />
-      <input
-        type="password"
-        name="password"
-        placeholder="password"
-        autocomplete="current-password"
-        required
-        autofocus
-        class="w-full rounded px-3 py-2 bg-neutral-900 border border-neutral-800 focus:border-neutral-600 outline-none"
-      />
-      {error && <p class="text-red-400 text-sm">Incorrect password.</p>}
-      <button type="submit" class="w-full rounded bg-neutral-100 text-neutral-900 py-2 font-medium">
-        enter
-      </button>
-    </form>
+  <body class="bg-grid relative flex min-h-screen items-center justify-center p-8">
+    <a
+      href="/"
+      class="absolute top-6 left-7 inline-flex items-center gap-2 font-display text-[16px] uppercase tracking-[0.04em] no-underline"
+    >
+      <span class="text-accent">✦</span>
+      <span class="text-fg-0">tooling</span>
+      <span class="text-fg-3 font-sans text-[14px] normal-case tracking-normal">/</span>
+      <span class="text-fg-1 font-sans text-[14px] font-medium normal-case tracking-normal">filebundle</span>
+    </a>
+
+    <div class="bracketed relative w-[380px] max-w-full border border-line-1 bg-bg-1 shadow-2">
+      <span class="bk-tr"></span><span class="bk-bl"></span>
+      <div class="stamp-hdr">
+        <span>filebundle</span>
+        <span class="flex-1"></span>
+        <span class="font-mono tracking-[0.04em] normal-case text-fg-3">auth.0042</span>
+      </div>
+      <div class="px-8 pt-7 pb-2">
+        <IconTile size={40} variant="accent" class="mb-[18px]">
+          <Icon name="lock" size={18} />
+        </IconTile>
+        <h1 class="m-0 font-display text-[28px] font-normal uppercase leading-[1.05] tracking-[0.02em]">
+          Sign <span class="text-accent">in</span>
+        </h1>
+        <p class="mt-1.5 mb-0 text-[14px] text-fg-2">
+          Password gates uploads. Reading bundles stays open.
+        </p>
+      </div>
+      <form method="POST" action="/api/login" class="px-8 pt-6 pb-7">
+        <input type="hidden" name="next" value={nextParam} />
+        <label for="password" class="mb-2 block text-[13px] font-medium text-fg-1">Password</label>
+        <input
+          id="password"
+          class="input"
+          type="password"
+          name="password"
+          autocomplete="current-password"
+          required
+          autofocus
+          style="height:40px;"
+        />
+        {error && <p class="alert mt-3">Incorrect password.</p>}
+        <button type="submit" class="btn btn--primary btn--lg mt-4 w-full">
+          Continue <Icon name="arrow" size={14} />
+        </button>
+        <div class="mt-[18px] flex justify-between text-[12px] text-fg-3">
+          <span>Rate-limited · 5/min</span>
+          <ShortcutHint keys={["↩"]} label="to submit" class="text-[12px] text-fg-3" />
+        </div>
+      </form>
+    </div>
   </body>
 </html>

@@ -1,0 +1,37 @@
+---
+import Icon from "./Icon.astro";
+
+interface Props {
+  /** id of the actual <input type="file"> nested inside (so the label triggers it). */
+  inputId: string;
+  /** name attribute for the file input. */
+  name?: string;
+  multiple?: boolean;
+  /** id of the wrapping label (used by the page's drag/drop JS). */
+  id?: string;
+  title?: string;
+  hint?: string;
+}
+const {
+  inputId,
+  name = "files",
+  multiple = true,
+  id = "dropzone",
+  title = "Drop files here",
+  hint = "or click to browse",
+} = Astro.props;
+---
+<label id={id} class="dropzone hatched block cursor-pointer" for={inputId}>
+  <div class="dropzone__icon">
+    <Icon name="upload" size={20} />
+  </div>
+  <div class="dropzone__title">{title}</div>
+  <div class="dropzone__hint">{hint}</div>
+  <input
+    id={inputId}
+    type="file"
+    name={name}
+    multiple={multiple}
+    class="hidden"
+  />
+</label>

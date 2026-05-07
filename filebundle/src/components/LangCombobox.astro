@@ -1,0 +1,136 @@
+---
+import { LANG_OPTIONS } from "@/lib/highlight";
+---
+<script is:inline define:vars={{ langOptions: LANG_OPTIONS }}>
+  (function () {
+    if (window.__langCombobox) return; // idempotent across pages
+
+    function buildLangCombobox(name) {
+      const root = document.createElement("div");
+      root.className = "combobox";
+      root.setAttribute("data-combobox", "");
+      root.style.width = "120px";
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.name = name;
+      input.placeholder = "lang";
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.className = "input combobox__input";
+      input.style.cssText =
+        "height:28px; padding:0 22px 0 10px; font-size:12px; font-family:var(--font-mono);";
+      root.appendChild(input);
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "combobox__toggle";
+      toggle.tabIndex = -1;
+      toggle.setAttribute("aria-label", "show language options");
+      toggle.innerHTML =
+        '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>';
+      root.appendChild(toggle);
+
+      const list = document.createElement("ul");
+      list.className = "combobox__list";
+      list.setAttribute("role", "listbox");
+      list.hidden = true;
+      for (const value of langOptions) {
+        const li = document.createElement("li");
+        li.className = "combobox__opt";
+        li.setAttribute("role", "option");
+        li.setAttribute("data-value", value);
+        li.textContent = value;
+        list.appendChild(li);
+      }
+      root.appendChild(list);
+
+      setupCombobox(root);
+      return root;
+    }
+
+    function setupCombobox(root) {
+      const input = root.querySelector(".combobox__input");
+      const list = root.querySelector(".combobox__list");
+      const opts = Array.from(list.querySelectorAll(".combobox__opt"));
+      const toggle = root.querySelector(".combobox__toggle");
+      let active = -1;
+
+      function visibleOpts() { return opts.filter((o) => !o.hidden); }
+
+      function show() { list.hidden = false; filter(); }
+      function hide() { list.hidden = true; active = -1; updateActive(); }
+
+      function filter() {
+        const q = input.value.toLowerCase().trim();
+        let any = false;
+        for (const o of opts) {
+          const v = o.getAttribute("data-value").toLowerCase();
+          const match = !q || v.includes(q);
+          o.hidden = !match;
+          if (match) any = true;
+        }
+        if (!any) list.hidden = true;
+      }
+
+      function updateActive() {
+        opts.forEach((o, i) => {
+          o.setAttribute("aria-selected", i === active ? "true" : "false");
+        });
+        if (active >= 0) {
+          const el = opts[active];
+          if (el && !el.hidden) el.scrollIntoView({ block: "nearest" });
+        }
+      }
+
+      input.addEventListener("focus", show);
+      input.addEventListener("input", () => { active = -1; show(); });
+      input.addEventListener("blur", () => setTimeout(hide, 120));
+
+      toggle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        if (list.hidden) { input.focus(); show(); } else { hide(); }
+      });
+
+      input.addEventListener("keydown", (e) => {
+        const vis = visibleOpts();
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          if (list.hidden) show();
+          if (vis.length === 0) return;
+          const cur = vis.findIndex((o) => o === opts[active]);
+          const next = cur < vis.length - 1 ? cur + 1 : 0;
+          active = opts.indexOf(vis[next]);
+          updateActive();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          if (list.hidden) show();
+          if (vis.length === 0) return;
+          const cur = vis.findIndex((o) => o === opts[active]);
+          const prev = cur > 0 ? cur - 1 : vis.length - 1;
+          active = opts.indexOf(vis[prev]);
+          updateActive();
+        } else if (e.key === "Enter" && !list.hidden && active >= 0) {
+          e.preventDefault();
+          input.value = opts[active].getAttribute("data-value");
+          hide();
+        } else if (e.key === "Escape") {
+          if (!list.hidden) { e.preventDefault(); hide(); }
+        }
+      });
+
+      for (const o of opts) {
+        o.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          input.value = o.getAttribute("data-value");
+          hide();
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+      }
+    }
+
+    window.__langCombobox = true;
+    window.buildLangCombobox = buildLangCombobox;
+    window.setupLangCombobox = setupCombobox;
+  })();
+</script>

@@ -1,0 +1,48 @@
+---
+import Icon from "./Icon.astro";
+interface Props {
+  tool?: string;
+}
+const { tool = "filebundle" } = Astro.props;
+---
+<header class="topbar">
+  <a href="/" class="topbar__brand" aria-label="tooling / filebundle home">
+    <span class="star">✦</span>
+    <span>tooling</span>
+    <span class="crumb">/</span>
+    <span class="tool">{tool}</span>
+  </a>
+  <div class="topbar__right">
+    <form data-bundle-nav class="search-input" role="search" aria-label="open bundle">
+      <span class="i" aria-hidden="true"><Icon name="search" size={14}/></span>
+      <input
+        type="text"
+        name="slug"
+        placeholder="open bundle by id"
+        autocomplete="off"
+        spellcheck="false"
+        autocapitalize="off"
+      />
+    </form>
+  </div>
+</header>
+
+<script is:inline>
+  (function () {
+    for (const form of document.querySelectorAll("[data-bundle-nav]")) {
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const input = form.querySelector('input[name="slug"]');
+        const raw = (input && input.value ? input.value : "").trim();
+        if (!raw) return;
+        const slug = raw
+          .replace(/^https?:\/\/[^/]+\//i, "")
+          .replace(/^\/+/, "")
+          .replace(/[?#].*$/, "")
+          .replace(/\/+$/, "");
+        if (!slug) return;
+        window.location.href = "/" + encodeURIComponent(slug);
+      });
+    }
+  })();
+</script>

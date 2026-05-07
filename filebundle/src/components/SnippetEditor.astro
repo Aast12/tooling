@@ -1,0 +1,54 @@
+---
+import LangCombobox from "./LangCombobox.astro";
+---
+<LangCombobox />
+
+<template id="snippet-editor-template">
+  <div class="panel">
+    <div class="panel-h gap-2.5">
+      <span class="inline-flex text-accent">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5.5 4.5 2.5 8l3 3.5M10.5 4.5l3 3.5-3 3.5M9 3l-2 10"/>
+        </svg>
+      </span>
+      <input data-snippet-name placeholder="Name (optional)" class="flex-1 h-7 bg-transparent px-2.5 text-[13px] font-medium font-sans text-fg-0 outline-none border-0" />
+      <span data-lang-slot></span>
+      <button type="button" class="btn btn--ghost btn--sm btn--icon text-fg-3" data-remove-snippet aria-label="remove">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>
+        </svg>
+      </button>
+    </div>
+    <textarea data-snippet-body placeholder="Paste text here…" class="textarea border-0 rounded-none bg-transparent min-h-[120px]"></textarea>
+  </div>
+</template>
+
+<script is:inline>
+  (function () {
+    if (window.__snippetEditor) return;
+    window.__snippetEditor = true;
+
+    /**
+     * Build a snippet editor from the page's <template>.
+     *  - prefix: numeric or string suffix used for form field names
+     *  - onRemove: optional callback fired after the editor is removed from DOM
+     */
+    window.buildSnippetEditor = function (prefix, onRemove) {
+      const tpl = document.getElementById("snippet-editor-template");
+      const node = tpl.content.firstElementChild.cloneNode(true);
+
+      node.querySelector("[data-snippet-name]").name = "snippet_name_" + prefix;
+      node.querySelector("[data-snippet-body]").name = "snippet_content_" + prefix;
+
+      const slot = node.querySelector("[data-lang-slot]");
+      slot.replaceWith(window.buildLangCombobox("snippet_language_" + prefix));
+
+      node.querySelector("[data-remove-snippet]").addEventListener("click", () => {
+        node.remove();
+        if (typeof onRemove === "function") onRemove();
+      });
+
+      return node;
+    };
+  })();
+</script>

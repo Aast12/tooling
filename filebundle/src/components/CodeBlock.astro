@@ -1,0 +1,31 @@
+---
+import Icon from "./Icon.astro";
+
+interface Props {
+  id?: string;
+  name: string;
+  meta?: string;
+  /** raw HTML for the code body (e.g. shiki-highlighted). */
+  html: string;
+  /** raw text passed to the copy button. omit to hide the button. */
+  copyText?: string;
+}
+const { id, name, meta, html, copyText } = Astro.props;
+---
+<article id={id} class="code-block">
+  <div class="code-block-h">
+    <span class="inline-flex items-center gap-2">
+      <Icon name="code" size={13} />
+      <span>{name}</span>
+    </span>
+    <span class="inline-flex items-center gap-3">
+      {meta && <span class="text-xs text-fg-2">{meta}</span>}
+      {copyText !== undefined && (
+        <button type="button" class="btn btn--ghost btn--sm" data-copy={copyText}>
+          <Icon name="copy" size={13} />Copy
+        </button>
+      )}
+    </span>
+  </div>
+  <div class="code-block-b" set:html={html}></div>
+</article>

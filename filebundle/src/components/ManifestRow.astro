@@ -1,0 +1,23 @@
+---
+import Icon from "./Icon.astro";
+
+type IconName = "file" | "code" | "image";
+
+interface Props {
+  icon: IconName;
+  name: string;
+  meta: string;
+  iconVariant?: "default" | "accent";
+}
+const { icon, name, meta, iconVariant = "default" } = Astro.props;
+const iconClass = iconVariant === "accent" ? "row__icon row__icon--accent" : "row__icon";
+---
+<div class="row">
+  <span class={iconClass}><Icon name={icon} size={15} /></span>
+  <div>
+    <div class="row__name">{name}</div>
+    <div class="row__meta">{meta}</div>
+  </div>
+  <span></span>
+  <span class="flex gap-1.5"><slot /></span>
+</div>

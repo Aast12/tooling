@@ -1,0 +1,13 @@
+---
+interface Props {
+  title: string;
+  hint?: string;
+}
+const { title, hint } = Astro.props;
+---
+<div class="section-h">
+  <h2>{title}</h2>
+  {hint && <span class="text-sm text-fg-2">{hint}</span>}
+  <span class="flex-1"></span>
+  <slot />
+</div>

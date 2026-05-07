@@ -1,0 +1,16 @@
+---
+interface Props {
+  keys: string[];
+  label?: string;
+  class?: string;
+}
+const { keys, label, class: className = "text-sm text-fg-2" } = Astro.props;
+---
+<span class={className}>
+  {keys.map((k, i) => (
+    <>
+      {i > 0 ? " " : ""}<span class="kbd">{k}</span>
+    </>
+  ))}
+  {label && <> {label}</>}
+</span>

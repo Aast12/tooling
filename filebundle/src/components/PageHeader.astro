@@ -1,0 +1,16 @@
+---
+interface Props {
+  eyebrow?: string;
+}
+const { eyebrow } = Astro.props;
+const hasSub = Astro.slots.has("sub");
+const hasAction = Astro.slots.has("action");
+---
+<header class="page-header">
+  <div>
+    {eyebrow && <div class="t-eyebrow mb-3.5">{eyebrow}</div>}
+    <h1><slot /></h1>
+    {hasSub && <p class="sub"><slot name="sub" /></p>}
+  </div>
+  {hasAction && <div><slot name="action" /></div>}
+</header>

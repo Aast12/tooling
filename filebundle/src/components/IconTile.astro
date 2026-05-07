@@ -1,0 +1,20 @@
+---
+interface Props {
+  size?: number;
+  variant?: "default" | "accent" | "err";
+  class?: string;
+}
+const { size = 40, variant = "default", class: className = "" } = Astro.props;
+const variantClass = {
+  default: "border-line-1 bg-bg-2 text-fg-1",
+  accent:  "border-line-1 bg-bg-2 text-accent",
+  err:     "border-[oklch(0.40_0.08_25)] bg-err-bg text-err",
+}[variant];
+const radius = size >= 50 ? "rounded-[14px]" : "rounded-[10px]";
+---
+<div
+  class={`inline-flex items-center justify-center border ${radius} ${variantClass} ${className}`}
+  style={`width:${size}px;height:${size}px;`}
+>
+  <slot />
+</div>

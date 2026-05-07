@@ -1,11 +1,18 @@
 ---
-import "@/styles/global.css";
+import Layout from "@/components/Layout.astro";
+import Icon from "@/components/Icon.astro";
+import StatusBar from "@/components/StatusBar.astro";
+import SectionHeader from "@/components/SectionHeader.astro";
+import ManifestRow from "@/components/ManifestRow.astro";
+import CodeBlock from "@/components/CodeBlock.astro";
+import ShareCallout from "@/components/ShareCallout.astro";
+import SnippetEditor from "@/components/SnippetEditor.astro";
+import ShortcutHint from "@/components/ShortcutHint.astro";
 import { env } from "cloudflare:workers";
 import { getBundle, getBundleItems } from "@/lib/db";
 import { highlight } from "@/lib/highlight";
 import { qrSvg } from "@/lib/qr";
 import { formatBytes, MAX_FILE_BYTES, MAX_TOTAL_BYTES } from "@/lib/validation";
-import BundleNav from "@/components/BundleNav.astro";
 
 const { bundleId } = Astro.params as { bundleId: string };
 const e = env as Env;
@@ -19,10 +26,11 @@ if (!bundle) {
 const items = await getBundleItems(e.DB, bundleId);
 const created = Astro.url.searchParams.get("created") === "1";
 const bundleUrl = `${Astro.url.origin}/${bundleId}`;
-const qr = created ? await qrSvg(bundleUrl) : "";
-const expiresInSec = bundle.expires_at - now;
-const expiresHuman = formatRelative(expiresInSec);
+const qr = await qrSvg(bundleUrl);
 const totalBytes = items.reduce((s, i) => s + i.size, 0);
+const remainingBytes = Math.max(0, MAX_TOTAL_BYTES - totalBytes);
+const expiresAtMs = bundle.expires_at * 1000;
+const ageSec = Math.max(0, now - bundle.created_at);
 
 const renderedSnippets = await Promise.all(
   items.map(async (i) =>
@@ -30,207 +38,300 @@ const renderedSnippets = await Promise.all(
   ),
 );
 
-function formatRelative(sec: number): string {
-  if (sec < 60) return `${sec}s`;
-  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}h`;
-  return `${Math.floor(sec / 86400)}d`;
+function formatAge(sec: number): string {
+  if (sec < 60) return `${sec}s ago`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+  return `${Math.floor(sec / 86400)}d ago`;
 }
 
-const remainingBytes = Math.max(0, MAX_TOTAL_BYTES - totalBytes);
+type IconName = "file" | "code" | "image";
+
+function snippetIcon(name: string): IconName {
+  if (/\.(png|jpe?g|gif|webp|svg)$/i.test(name)) return "image";
+  return "code";
+}
+
+function fileIcon(name: string): IconName {
+  if (/\.(png|jpe?g|gif|webp|svg)$/i.test(name)) return "image";
+  if (/\.(sh|js|ts|py|rb|go|rs|java|tsx|jsx|c|cpp|json|yml|yaml|toml|md|css|html)$/i.test(name)) return "code";
+  return "file";
+}
+
+const snippets = items.filter((i) => i.kind === "snippet");
 ---
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>{bundleId} · filebundle</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-  </head>
-  <body class="min-h-screen bg-neutral-950 text-neutral-100 font-sans p-6">
-    <BundleNav currentBundleId={bundleId} />
-    <main class="max-w-2xl mx-auto space-y-5">
-      {created && (
-        <section class="rounded border border-emerald-700 bg-emerald-950/40 p-4 space-y-3">
-          <p class="text-emerald-300 text-sm">Bundle created. Share this URL:</p>
-          <div class="flex items-center gap-2">
-            <code class="flex-1 text-sm break-all">{bundleUrl}</code>
-            <button type="button" data-copy={bundleUrl} class="text-xs rounded bg-neutral-100 text-neutral-900 px-2 py-1">copy</button>
-          </div>
-          <div class="pt-2" set:html={qr}></div>
-        </section>
-      )}
+<Layout title={`${bundleId} · filebundle`}>
+  <ShareCallout
+    bundleId={bundleId}
+    bundleUrl={bundleUrl}
+    hostName={Astro.url.host}
+    ageLabel={formatAge(ageSec)}
+    expiresAtMs={expiresAtMs}
+    qrSvgHtml={qr}
+    created={created}
+  />
 
-      <header>
-        <h1 class="text-xl font-semibold font-mono">{bundleId}</h1>
-        <p class="text-neutral-400 text-sm">
-          expires in {expiresHuman} · {formatBytes(totalBytes)} · {items.length} item(s)
-        </p>
-      </header>
-
-      <section class="space-y-4">
-        {items.map((item, idx) => item.kind === "snippet" ? (
-          <article class="space-y-2">
-            <div class="flex items-center justify-between text-sm text-neutral-400">
-              <span>{item.name}{item.language ? ` · ${item.language}` : ""}</span>
-              <button type="button" data-copy={item.content ?? ""} class="text-xs underline hover:text-neutral-200">copy</button>
-            </div>
-            <div class="rounded overflow-auto text-sm" set:html={renderedSnippets[idx]}></div>
-          </article>
-        ) : (
-          <article class="flex items-center justify-between rounded border border-neutral-800 p-3">
-            <div>
-              <p class="font-mono text-sm">{item.name}</p>
-              <p class="text-xs text-neutral-500">
-                {formatBytes(item.size)}{item.mime ? ` · ${item.mime}` : ""}
-              </p>
-            </div>
-            <a href={`/api/files/${item.id}`} class="text-sm rounded bg-neutral-100 text-neutral-900 px-3 py-1.5">download</a>
-          </article>
-        ))}
-      </section>
-
-      <section class="border-t border-neutral-800 pt-5">
-        <details class="space-y-4" open={items.length === 0}>
-          <summary class="cursor-pointer text-sm text-neutral-400 hover:text-neutral-200 select-none">
-            + add to this bundle
-          </summary>
-          <form
-            id="append-form"
-            method="POST"
-            action={`/api/bundles/${bundleId}/items`}
-            enctype="multipart/form-data"
-            class="space-y-5 pt-3"
-            data-max-file={MAX_FILE_BYTES}
-            data-remaining={remainingBytes}
+  <section class="section">
+    <SectionHeader
+      title="Contents"
+      hint={`${items.length} ${items.length === 1 ? "item" : "items"} · ${formatBytes(totalBytes)}`}
+    />
+    <div class="dual overflow-hidden">
+      <div class="dual-h">
+        <span>Manifest</span>
+        <span class="seq">·</span>
+        <span class="font-mono normal-case tracking-normal text-fg-3">{items.length} entries</span>
+        <span class="flex-1"></span>
+        <span>{formatBytes(totalBytes)}</span>
+      </div>
+      {items.map((item) => (
+        item.kind === "snippet" ? (
+          <ManifestRow
+            icon={snippetIcon(item.name)}
+            iconVariant="accent"
+            name={item.name}
+            meta={`${item.language ?? "text"} · ${formatBytes(item.size)}`}
           >
-            <div>
-              <label class="block text-sm text-neutral-400 mb-2">Files</label>
-              <input
-                type="file"
-                name="files"
-                multiple
-                class="block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-neutral-800 file:px-3 file:py-2 file:text-neutral-100 hover:file:bg-neutral-700"
-              />
-              <p class="text-xs text-neutral-500 mt-1">
-                Max {formatBytes(MAX_FILE_BYTES)} per file · {formatBytes(remainingBytes)} remaining in this bundle.
-              </p>
-            </div>
-
-            <p
-              id="append-error"
-              class="hidden rounded border border-red-700 bg-red-950/40 text-red-300 text-sm px-3 py-2"
-              role="alert"
-            ></p>
-
-            <div id="snippet-list" class="space-y-3">
-              <label class="block text-sm text-neutral-400">Text snippets</label>
-            </div>
-            <button type="button" id="add-snippet" class="text-sm text-neutral-400 hover:text-neutral-200 underline">
-              + add snippet
+            <button type="button" class="btn btn--ghost btn--sm btn--icon" data-copy={item.content ?? ""} aria-label="copy">
+              <Icon name="copy" size={13} />
             </button>
+            <a href={`#snippet-${item.id}`} class="btn btn--sm">
+              <Icon name="eye" size={13} />View
+            </a>
+          </ManifestRow>
+        ) : (
+          <ManifestRow
+            icon={fileIcon(item.name)}
+            name={item.name}
+            meta={`${formatBytes(item.size)}${item.mime ? ` · ${item.mime}` : ""}`}
+          >
+            <a href={`/api/files/${item.id}`} class="btn btn--sm">
+              <Icon name="download" size={13} />Download
+            </a>
+          </ManifestRow>
+        )
+      ))}
+    </div>
+  </section>
 
-            <button type="submit" class="rounded bg-neutral-100 text-neutral-900 px-5 py-2 font-medium">
-              add to bundle
+  {snippets.length > 0 && (
+    <section class="section">
+      <SectionHeader
+        title="Snippets"
+        hint={`${snippets.length} previewed`}
+      />
+      <div class="grid gap-4">
+        {items.map((item, idx) => item.kind === "snippet" && (
+          <CodeBlock
+            id={`snippet-${item.id}`}
+            name={item.name}
+            meta={`${item.language ?? "text"} · ${formatBytes(item.size)}`}
+            html={renderedSnippets[idx]}
+            copyText={item.content ?? ""}
+          />
+        ))}
+      </div>
+    </section>
+  )}
+
+  <section class="section">
+    <SectionHeader title="Add to this bundle" hint="Append-only · until it expires" />
+    <details id="append-details" class="panel overflow-hidden" open={items.length === 0}>
+      <summary class="panel-h cursor-pointer select-none">
+        <Icon name="plus" size={14} />
+        <span>Open add form</span>
+        <span class="flex-1"></span>
+        <span class="text-sm text-fg-2">{formatBytes(remainingBytes)} remaining</span>
+      </summary>
+      <form
+        id="append-form"
+        method="POST"
+        action={`/api/bundles/${bundleId}/items`}
+        enctype="multipart/form-data"
+        class="grid gap-[18px] p-[18px]"
+        data-max-file={MAX_FILE_BYTES}
+        data-remaining={remainingBytes}
+      >
+        <div>
+          <label for="append-files" class="mb-2 block text-[13px] font-medium text-fg-1">Files</label>
+          <input id="append-files" type="file" name="files" multiple class="file-input" />
+          <p class="mt-1.5 text-xs text-fg-2">
+            Max {formatBytes(MAX_FILE_BYTES)} per file · {formatBytes(remainingBytes)} remaining.
+          </p>
+        </div>
+
+        <p id="append-error" class="alert" hidden role="alert"></p>
+
+        <div>
+          <div class="mb-2 flex items-center gap-3">
+            <label class="text-[13px] font-medium text-fg-1">Snippets</label>
+            <span class="flex-1"></span>
+            <button type="button" id="add-append-snippet" class="btn btn--ghost btn--sm">
+              <Icon name="plus" size={13} />Add snippet
             </button>
-          </form>
-        </details>
-      </section>
-    </main>
+          </div>
+          <div id="append-snippet-list" class="grid gap-3"></div>
+          <SnippetEditor />
+        </div>
 
-    <script is:inline>
-      for (const btn of document.querySelectorAll("[data-copy]")) {
-        btn.addEventListener("click", async () => {
-          const text = btn.getAttribute("data-copy") ?? "";
-          await navigator.clipboard.writeText(text);
+        <div class="flex items-center gap-2.5">
+          <button type="submit" class="btn btn--primary">
+            <Icon name="upload" size={13} />Add to bundle
+          </button>
+          <span class="flex-1"></span>
+          <span class="text-sm text-fg-2">Drop files anywhere to upload</span>
+        </div>
+      </form>
+    </details>
+  </section>
+
+  <StatusBar slot="status">
+    <span class="slot"><span class="dot text-ok"></span><span class="text-fg-1">Active</span></span>
+    <span class="sep">·</span>
+    <span class="slot font-mono text-fg-1">{bundleId}</span>
+    <span class="sep">·</span>
+    <span class="slot">{items.length} {items.length === 1 ? "item" : "items"} · {formatBytes(totalBytes)}</span>
+    <span class="slot" slot="right">
+      <Icon name="clock" size={11} />
+      <span class="tabular-nums" data-countdown={expiresAtMs}>…</span>
+      <span>left</span>
+    </span>
+    <span class="slot" slot="right"><ShortcutHint keys={["C"]} label="copy URL" class="" /></span>
+  </StatusBar>
+</Layout>
+
+<script is:inline>
+  // Countdown
+  (function () {
+    const els = document.querySelectorAll('[data-countdown]');
+    if (!els.length) return;
+    function pad(n) { return String(n).padStart(2, "0"); }
+    function tick() {
+      const now = Date.now();
+      els.forEach((el) => {
+        const target = Number(el.getAttribute('data-countdown'));
+        const left = Math.max(0, target - now);
+        const total = Math.floor(left / 1000);
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        const s = total % 60;
+        el.textContent = pad(h) + ":" + pad(m) + ":" + pad(s);
+      });
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+
+  // Copy buttons
+  (function () {
+    for (const btn of document.querySelectorAll("[data-copy]")) {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const text = btn.getAttribute("data-copy") ?? "";
+        try { await navigator.clipboard.writeText(text); } catch (_) {}
+        const def = btn.querySelector('[data-copy-default]');
+        const done = btn.querySelector('[data-copy-done]');
+        if (def && done) {
+          def.style.display = 'none';
+          done.classList.remove('hidden');
+          done.style.display = 'inline-flex';
+          setTimeout(() => {
+            def.style.display = 'inline-flex';
+            done.classList.add('hidden');
+            done.style.display = 'none';
+          }, 1400);
+        } else {
           const original = btn.textContent;
-          btn.textContent = "copied!";
+          btn.textContent = "copied";
           setTimeout(() => { btn.textContent = original; }, 1200);
-        });
+        }
+      });
+    }
+  })();
+
+  // Share button
+  (function () {
+    for (const btn of document.querySelectorAll('[data-share-url]')) {
+      btn.addEventListener('click', async () => {
+        const url = btn.getAttribute('data-share-url') || '';
+        if (navigator.share) {
+          try { await navigator.share({ url }); return; } catch (_) {}
+        }
+        try { await navigator.clipboard.writeText(url); } catch (_) {}
+      });
+    }
+  })();
+
+  // QR toggle
+  (function () {
+    const btn = document.querySelector('[data-toggle-qr]');
+    const frame = document.getElementById('qr-frame');
+    if (!btn || !frame) return;
+    btn.addEventListener('click', () => {
+      const expanded = btn.getAttribute('aria-expanded') !== 'false';
+      btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      frame.style.display = expanded ? 'none' : '';
+      const qrSvg = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="4.5" height="4.5"/><rect x="9.5" y="2" width="4.5" height="4.5"/><rect x="2" y="9.5" width="4.5" height="4.5"/><path d="M9 9h2v2M13 9v2M9 13h2M13 13v.5"/></svg>';
+      btn.innerHTML = expanded ? qrSvg + 'Show QR' : qrSvg + 'Hide QR';
+    });
+  })();
+
+  // 'C' shortcut to copy URL
+  (function () {
+    const copyBtn = document.querySelector('.share-url [data-copy]');
+    document.addEventListener('keydown', (e) => {
+      if (e.target instanceof HTMLElement && /input|textarea/i.test(e.target.tagName)) return;
+      if (e.key === 'c' || e.key === 'C') {
+        if (copyBtn) copyBtn.click();
       }
+    });
+  })();
 
-      (function () {
-        const form = document.getElementById("append-form");
-        if (!form) return;
-        const fileInput = form.querySelector('input[type="file"][name="files"]');
-        const errorEl = document.getElementById("append-error");
-        const maxFile = Number(form.dataset.maxFile);
-        const remaining = Number(form.dataset.remaining);
+  // Append form: validation + snippet adder (uses shared <SnippetEditor /> template)
+  (function () {
+    const form = document.getElementById("append-form");
+    if (!form) return;
+    const fileInput = form.querySelector('input[type="file"][name="files"]');
+    const errorEl = document.getElementById("append-error");
+    const maxFile = Number(form.dataset.maxFile);
+    const remaining = Number(form.dataset.remaining);
 
-        function fmt(n) {
-          if (n < 1024) return n + " B";
-          if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
-          if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB";
-          return (n / 1073741824).toFixed(2) + " GB";
-        }
+    function fmt(n) {
+      if (n < 1024) return n + " B";
+      if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+      if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB";
+      return (n / 1073741824).toFixed(2) + " GB";
+    }
+    function showError(msg) { errorEl.textContent = msg; errorEl.hidden = false; }
+    function clearError() { errorEl.textContent = ""; errorEl.hidden = true; }
+    function validateFiles() {
+      const files = fileInput.files ? Array.from(fileInput.files) : [];
+      let total = 0;
+      for (const f of files) {
+        if (f.size > maxFile) return 'File "' + f.name + '" (' + fmt(f.size) + ') exceeds the ' + fmt(maxFile) + ' per-file limit.';
+        total += f.size;
+      }
+      if (total > remaining) return 'Selected files (' + fmt(total) + ") exceed this bundle's remaining capacity (" + fmt(remaining) + ").";
+      return null;
+    }
 
-        function showError(msg) {
-          errorEl.textContent = msg;
-          errorEl.classList.remove("hidden");
-          errorEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        }
+    fileInput.addEventListener("change", () => {
+      const err = validateFiles();
+      if (err) { showError(err); fileInput.value = ""; }
+      else clearError();
+    });
 
-        function clearError() {
-          errorEl.textContent = "";
-          errorEl.classList.add("hidden");
-        }
+    form.addEventListener("submit", (ev) => {
+      const err = validateFiles();
+      if (err) { ev.preventDefault(); showError(err); }
+    });
 
-        function validateFiles() {
-          const files = fileInput.files ? Array.from(fileInput.files) : [];
-          let total = 0;
-          for (const f of files) {
-            if (f.size > maxFile) {
-              return `File "${f.name}" (${fmt(f.size)}) exceeds the ${fmt(maxFile)} per-file limit.`;
-            }
-            total += f.size;
-          }
-          if (total > remaining) {
-            return `Selected files (${fmt(total)}) exceed this bundle's remaining capacity (${fmt(remaining)}).`;
-          }
-          return null;
-        }
-
-        fileInput.addEventListener("change", () => {
-          const err = validateFiles();
-          if (err) {
-            showError(err);
-            fileInput.value = "";
-          } else {
-            clearError();
-          }
-        });
-
-        form.addEventListener("submit", (ev) => {
-          const err = validateFiles();
-          if (err) {
-            ev.preventDefault();
-            showError(err);
-          }
-        });
-      })();
-
-      (function () {
-        const list = document.getElementById("snippet-list");
-        const addBtn = document.getElementById("add-snippet");
-        if (!list || !addBtn) return;
-        let counter = 0;
-        addBtn.addEventListener("click", () => {
-          counter += 1;
-          const wrap = document.createElement("div");
-          wrap.className = "space-y-2 border border-neutral-800 rounded p-3";
-          wrap.innerHTML = `
-            <input type="text" name="snippet_name_${counter}" placeholder="name (optional)"
-              class="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm" />
-            <textarea name="snippet_content_${counter}" rows="4" placeholder="paste text…"
-              class="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm font-mono"></textarea>
-            <div class="flex gap-2 items-center">
-              <input type="text" name="snippet_language_${counter}" placeholder="language (optional, e.g. ts)"
-                class="flex-1 bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs" />
-              <button type="button" class="text-xs text-red-400 hover:text-red-300" data-remove>remove</button>
-            </div>
-          `;
-          wrap.querySelector("[data-remove]").addEventListener("click", () => wrap.remove());
-          list.appendChild(wrap);
-        });
-      })();
-    </script>
-  </body>
-</html>
+    const list = document.getElementById('append-snippet-list');
+    const addBtn = document.getElementById('add-append-snippet');
+    let counter = 0;
+    if (addBtn) addBtn.addEventListener('click', () => {
+      counter += 1;
+      list.appendChild(window.buildSnippetEditor("a" + counter));
+    });
+  })();
+</script>

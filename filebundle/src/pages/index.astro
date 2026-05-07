@@ -1,159 +1,287 @@
 ---
-import "@/styles/global.css";
+import Layout from "@/components/Layout.astro";
+import Icon from "@/components/Icon.astro";
+import StatusBar from "@/components/StatusBar.astro";
+import PageHeader from "@/components/PageHeader.astro";
+import SectionHeader from "@/components/SectionHeader.astro";
+import Dropzone from "@/components/Dropzone.astro";
+import SnippetEditor from "@/components/SnippetEditor.astro";
+import ShortcutHint from "@/components/ShortcutHint.astro";
 import { EXPIRATION_CHOICES, DEFAULT_EXPIRATION } from "@/lib/expiration";
-import { formatBytes, MAX_FILE_BYTES, MAX_TOTAL_BYTES } from "@/lib/validation";
-import BundleNav from "@/components/BundleNav.astro";
+import { formatBytes, MAX_FILE_BYTES, MAX_TOTAL_BYTES, MAX_ITEMS } from "@/lib/validation";
 ---
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>filebundle</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-  </head>
-  <body class="min-h-screen bg-neutral-950 text-neutral-100 font-sans p-6">
-    <BundleNav />
-    <main class="max-w-2xl mx-auto space-y-6">
-      <header>
-        <h1 class="text-xl font-semibold">filebundle</h1>
-        <p class="text-neutral-400 text-sm">Temporary files and snippets. Bundle, share, forget.</p>
-      </header>
+<Layout title="filebundle">
+  <PageHeader eyebrow="filebundle / new">
+    New <span class="text-accent">bundle</span>
+    <Fragment slot="sub">
+      Drop files or paste snippets. Get a short URL and a QR code.
+      Everything is hard-deleted when it expires.
+    </Fragment>
+  </PageHeader>
 
-      <form
-        id="upload-form"
-        method="POST"
-        action="/api/bundles"
-        enctype="multipart/form-data"
-        class="space-y-5"
-        data-max-file={MAX_FILE_BYTES}
-        data-max-total={MAX_TOTAL_BYTES}
-      >
-        <div>
-          <label class="block text-sm text-neutral-400 mb-2">Files</label>
-          <input
-            type="file"
-            name="files"
-            multiple
-            class="block w-full text-sm file:mr-3 file:rounded file:border-0 file:bg-neutral-800 file:px-3 file:py-2 file:text-neutral-100 hover:file:bg-neutral-700"
-          />
-          <p class="text-xs text-neutral-500 mt-1">
-            Max {formatBytes(MAX_FILE_BYTES)} per file, {formatBytes(MAX_TOTAL_BYTES)} total.
-          </p>
-        </div>
+  <form
+    id="upload-form"
+    method="POST"
+    action="/api/bundles"
+    enctype="multipart/form-data"
+    data-max-file={MAX_FILE_BYTES}
+    data-max-total={MAX_TOTAL_BYTES}
+  >
+    <section class="section">
+      <SectionHeader title="Files" hint="Optional · drop zone">
+        <span class="text-sm text-fg-2">
+          Max {formatBytes(MAX_FILE_BYTES)} per file · {formatBytes(MAX_TOTAL_BYTES)} total
+        </span>
+      </SectionHeader>
 
-        <p
-          id="upload-error"
-          class="hidden rounded border border-red-700 bg-red-950/40 text-red-300 text-sm px-3 py-2"
-          role="alert"
-        ></p>
+      <Dropzone inputId="file-input" />
+      <ul id="file-list" class="hidden m-0 mt-3 list-none border border-line-1 bg-bg-1 p-0" role="list"></ul>
+      <p id="upload-error" class="alert mt-3" hidden role="alert"></p>
+    </section>
 
-        <div id="snippet-list" class="space-y-3">
-          <label class="block text-sm text-neutral-400">Text snippets</label>
-        </div>
-        <button type="button" id="add-snippet" class="text-sm text-neutral-400 hover:text-neutral-200 underline">
-          + add snippet
+    <section class="section">
+      <SectionHeader title="Snippets">
+        <span class="text-sm text-fg-2 mr-3" id="snippet-hint">Optional</span>
+        <button type="button" id="add-snippet" class="btn btn--ghost btn--sm">
+          <Icon name="plus" size={13} />Add snippet
         </button>
+      </SectionHeader>
+      <div id="snippet-list" class="grid gap-3"></div>
+      <SnippetEditor />
+    </section>
 
-        <div>
-          <label class="block text-sm text-neutral-400 mb-2">Expires in</label>
-          <select name="expiration" class="bg-neutral-900 border border-neutral-800 rounded px-3 py-2">
-            {EXPIRATION_CHOICES.map((c) => (
-              <option value={c} selected={c === DEFAULT_EXPIRATION}>{c}</option>
-            ))}
-          </select>
-        </div>
+    <section class="section">
+      <SectionHeader title="Expires in" />
+      <div class="seg" role="radiogroup" aria-label="expiration">
+        {EXPIRATION_CHOICES.map((c) => (
+          <button
+            type="button"
+            class="seg__opt"
+            role="radio"
+            data-exp={c}
+            aria-pressed={c === DEFAULT_EXPIRATION ? "true" : "false"}
+          >{c}</button>
+        ))}
+      </div>
+      <input type="hidden" name="expiration" id="expiration-input" value={DEFAULT_EXPIRATION} />
+      <p class="mt-2.5 text-sm text-fg-2">
+        Bundles are hard-deleted from R2 the moment they expire.
+      </p>
+    </section>
 
-        <button type="submit" class="rounded bg-neutral-100 text-neutral-900 px-5 py-2 font-medium">
-          create bundle
-        </button>
-      </form>
-    </main>
+    <div class="flex items-center gap-2.5 border-t border-line-1 pt-6">
+      <button type="submit" class="btn btn--primary btn--lg">
+        Create bundle <Icon name="arrow" size={14} />
+      </button>
+      <button type="reset" class="btn btn--lg">Reset</button>
+      <span class="flex-1"></span>
+      <ShortcutHint keys={["⌘", "↩"]} label="to submit" />
+    </div>
+  </form>
 
-    <script is:inline>
-      (function () {
-        const form = document.getElementById("upload-form");
-        const fileInput = form.querySelector('input[type="file"][name="files"]');
-        const errorEl = document.getElementById("upload-error");
-        const maxFile = Number(form.dataset.maxFile);
-        const maxTotal = Number(form.dataset.maxTotal);
+  <StatusBar slot="status">
+    <span class="slot"><span class="dot text-ok"></span><span class="text-fg-1">Connected</span></span>
+    <span class="sep">·</span>
+    <span class="slot"><span id="status-items">0</span> of {MAX_ITEMS} items</span>
+    <span class="sep">·</span>
+    <span class="slot"><span id="status-bytes">0 B</span> of {formatBytes(MAX_TOTAL_BYTES)}</span>
+    <span class="slot" slot="right"><ShortcutHint keys={["⌘", "↩"]} label="Submit" class="" /></span>
+  </StatusBar>
+</Layout>
 
-        function fmt(n) {
-          if (n < 1024) return n + " B";
-          if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
-          if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB";
-          return (n / 1073741824).toFixed(2) + " GB";
-        }
+<script is:inline>
+  (function () {
+    const form = document.getElementById("upload-form");
+    const fileInput = document.getElementById("file-input");
+    const dropzone = document.getElementById("dropzone");
+    const fileList = document.getElementById("file-list");
+    const errorEl = document.getElementById("upload-error");
+    const statusItems = document.getElementById("status-items");
+    const statusBytes = document.getElementById("status-bytes");
+    const expInput = document.getElementById("expiration-input");
+    const segOpts = document.querySelectorAll('.seg__opt[data-exp]');
+    const maxFile = Number(form.dataset.maxFile);
+    const maxTotal = Number(form.dataset.maxTotal);
 
-        function showError(msg) {
-          errorEl.textContent = msg;
-          errorEl.classList.remove("hidden");
-          errorEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        }
+    function fmt(n) {
+      if (n < 1024) return n + " B";
+      if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+      if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB";
+      return (n / 1073741824).toFixed(2) + " GB";
+    }
 
-        function clearError() {
-          errorEl.textContent = "";
-          errorEl.classList.add("hidden");
-        }
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.hidden = false;
+      errorEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+    function clearError() {
+      errorEl.textContent = "";
+      errorEl.hidden = true;
+    }
 
-        function validateFiles() {
-          const files = fileInput.files ? Array.from(fileInput.files) : [];
-          let total = 0;
-          for (const f of files) {
-            if (f.size > maxFile) {
-              return `File "${f.name}" (${fmt(f.size)}) exceeds the ${fmt(maxFile)} per-file limit.`;
-            }
-            total += f.size;
-          }
-          if (total > maxTotal) {
-            return `Bundle total (${fmt(total)}) would exceed the ${fmt(maxTotal)} bundle limit.`;
-          }
-          return null;
-        }
+    function fileIconName(name) {
+      if (/\.(png|jpe?g|gif|webp|svg)$/i.test(name)) return "image";
+      if (/\.(sh|js|ts|py|rb|go|rs|java|tsx|jsx|c|cpp|json|yml|yaml|toml|md|css|html)$/i.test(name)) return "code";
+      return "file";
+    }
 
-        fileInput.addEventListener("change", () => {
-          const err = validateFiles();
-          if (err) {
-            showError(err);
-            fileInput.value = "";
-          } else {
-            clearError();
-          }
+    const ICONS = {
+      file:  '<path d="M4 1.5h5l3 3V14a.5.5 0 0 1-.5.5h-7.5A.5.5 0 0 1 3.5 14V2a.5.5 0 0 1 .5-.5z"/><path d="M9 1.5v3.5h3"/>',
+      code:  '<path d="M5.5 4.5 2.5 8l3 3.5M10.5 4.5l3 3.5-3 3.5M9 3l-2 10"/>',
+      image: '<rect x="2" y="3" width="12" height="10" rx="1"/><circle cx="6" cy="7" r="1"/><path d="m2.5 12 3-3 3 2.5L11 9l2.5 3"/>',
+      x:     '<path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/>',
+    };
+    function svg(name, size) {
+      const s = size || 15;
+      return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + '</svg>';
+    }
+
+    function renderFiles() {
+      const files = fileInput.files ? Array.from(fileInput.files) : [];
+      let total = 0;
+      for (const f of files) total += f.size;
+
+      if (files.length === 0) {
+        dropzone.classList.remove("hidden");
+        fileList.classList.add("hidden");
+        fileList.innerHTML = "";
+      } else {
+        dropzone.classList.add("hidden");
+        fileList.classList.remove("hidden");
+        fileList.innerHTML = files.map((f, i) =>
+          '<li class="row">' +
+            '<span class="row__icon">' + svg(fileIconName(f.name)) + '</span>' +
+            '<div><div class="row__name">' + escapeHtml(f.name) + '</div>' +
+              '<div class="row__meta">' + fmt(f.size) + '</div></div>' +
+            '<span></span>' +
+            '<button type="button" class="btn btn--ghost btn--sm btn--icon" data-remove-file="' + i + '" aria-label="remove">' + svg("x", 14) + '</button>' +
+          '</li>'
+        ).join("");
+      }
+
+      const snippetCount = document.querySelectorAll('#snippet-list > div').length;
+      statusItems.textContent = String(files.length + snippetCount);
+      statusBytes.textContent = fmt(total);
+
+      for (const btn of fileList.querySelectorAll('[data-remove-file]')) {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.getAttribute('data-remove-file'));
+          const dt = new DataTransfer();
+          const arr = Array.from(fileInput.files || []);
+          arr.forEach((f, i) => { if (i !== idx) dt.items.add(f); });
+          fileInput.files = dt.files;
+          renderFiles();
         });
+      }
+    }
 
-        form.addEventListener("submit", (ev) => {
-          const err = validateFiles();
-          if (err) {
-            ev.preventDefault();
-            showError(err);
-          }
-        });
-      })();
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]);
+    }
 
-      (function () {
-        const list = document.getElementById("snippet-list");
-        const addBtn = document.getElementById("add-snippet");
-        let counter = 0;
-
-        function addSnippet() {
-          counter += 1;
-          const wrap = document.createElement("div");
-          wrap.className = "space-y-2 border border-neutral-800 rounded p-3";
-          wrap.innerHTML = `
-            <input type="text" name="snippet_name_${counter}" placeholder="name (optional)"
-              class="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm" />
-            <textarea name="snippet_content_${counter}" rows="4" placeholder="paste text…"
-              class="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-sm font-mono"></textarea>
-            <div class="flex gap-2 items-center">
-              <input type="text" name="snippet_language_${counter}" placeholder="language (optional, e.g. ts)"
-                class="flex-1 bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs" />
-              <button type="button" class="text-xs text-red-400 hover:text-red-300" data-remove>remove</button>
-            </div>
-          `;
-          wrap.querySelector("[data-remove]").addEventListener("click", () => wrap.remove());
-          list.appendChild(wrap);
+    function validateFiles() {
+      const files = fileInput.files ? Array.from(fileInput.files) : [];
+      let total = 0;
+      for (const f of files) {
+        if (f.size > maxFile) {
+          return 'File "' + f.name + '" (' + fmt(f.size) + ') exceeds the ' + fmt(maxFile) + ' per-file limit.';
         }
+        total += f.size;
+      }
+      if (total > maxTotal) {
+        return "Bundle total (" + fmt(total) + ") would exceed the " + fmt(maxTotal) + " bundle limit.";
+      }
+      return null;
+    }
 
-        addBtn.addEventListener("click", addSnippet);
-      })();
-    </script>
-  </body>
-</html>
+    fileInput.addEventListener("change", () => {
+      const err = validateFiles();
+      if (err) { showError(err); fileInput.value = ""; }
+      else { clearError(); }
+      renderFiles();
+    });
+
+    let dragDepth = 0;
+    function onDragEnter(e) { e.preventDefault(); dragDepth++; dropzone.classList.add("dropzone--drag"); }
+    function onDragLeave() { dragDepth--; if (dragDepth <= 0) { dragDepth = 0; dropzone.classList.remove("dropzone--drag"); } }
+    function onDrop(e) {
+      e.preventDefault();
+      dragDepth = 0;
+      dropzone.classList.remove("dropzone--drag");
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        const dt = new DataTransfer();
+        for (const f of fileInput.files || []) dt.items.add(f);
+        for (const f of e.dataTransfer.files) dt.items.add(f);
+        fileInput.files = dt.files;
+        const err = validateFiles();
+        if (err) { showError(err); fileInput.value = ""; }
+        else { clearError(); }
+        renderFiles();
+      }
+    }
+    ['dragenter','dragover'].forEach((t) => document.addEventListener(t, (e) => e.preventDefault()));
+    dropzone.addEventListener('dragenter', onDragEnter);
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add("dropzone--drag"); });
+    dropzone.addEventListener('dragleave', onDragLeave);
+    dropzone.addEventListener('drop', onDrop);
+
+    document.addEventListener('drop', (e) => {
+      if (e.target && e.target.closest && e.target.closest('#dropzone')) return;
+      e.preventDefault();
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        const dt = new DataTransfer();
+        for (const f of fileInput.files || []) dt.items.add(f);
+        for (const f of e.dataTransfer.files) dt.items.add(f);
+        fileInput.files = dt.files;
+        const err = validateFiles();
+        if (err) { showError(err); fileInput.value = ""; }
+        else { clearError(); }
+        renderFiles();
+      }
+    });
+
+    form.addEventListener("submit", (ev) => {
+      const err = validateFiles();
+      if (err) { ev.preventDefault(); showError(err); }
+    });
+
+    segOpts.forEach((b) => {
+      b.addEventListener('click', () => {
+        segOpts.forEach((x) => x.setAttribute('aria-pressed', 'false'));
+        b.setAttribute('aria-pressed', 'true');
+        expInput.value = b.getAttribute('data-exp');
+      });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    // Snippets — uses shared <SnippetEditor /> template via window.buildSnippetEditor
+    const snippetList = document.getElementById('snippet-list');
+    const snippetHint = document.getElementById('snippet-hint');
+    const addBtn = document.getElementById('add-snippet');
+    let counter = 0;
+
+    function updateSnippetHint() {
+      const n = snippetList.children.length;
+      snippetHint.textContent = n === 0 ? 'Optional' : (n + ' added');
+      const files = fileInput.files ? Array.from(fileInput.files) : [];
+      statusItems.textContent = String(files.length + n);
+    }
+
+    addBtn.addEventListener('click', () => {
+      counter += 1;
+      const node = window.buildSnippetEditor(counter, updateSnippetHint);
+      snippetList.appendChild(node);
+      updateSnippetHint();
+    });
+
+    renderFiles();
+    updateSnippetHint();
+  })();
+</script>

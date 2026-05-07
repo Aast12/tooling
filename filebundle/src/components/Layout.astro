@@ -1,0 +1,33 @@
+---
+import "@/styles/global.css";
+import TopBar from "./TopBar.astro";
+interface Props {
+  title: string;
+  tool?: string;
+  showTopBar?: boolean;
+  wide?: boolean;
+}
+const { title, tool = "filebundle", showTopBar = true, wide = false } = Astro.props;
+---
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+    />
+  </head>
+  <body>
+    <div class="page">
+      {showTopBar && <TopBar tool={tool} />}
+      <main class={wide ? "page-main page-main--wide" : "page-main"}>
+        <slot />
+      </main>
+    </div>
+    <slot name="status" />
+  </body>
+</html>

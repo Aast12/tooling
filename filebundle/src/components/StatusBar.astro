@@ -1,0 +1,10 @@
+---
+// Two slots: default (left side, separated by ·) and "right".
+// Use as: <StatusBar><span>left bit</span><span slot="right">right bit</span></StatusBar>
+---
+<div class="statusbar" role="status">
+  <slot />
+  <span class="slot--right">
+    <slot name="right" />
+  </span>
+</div>
